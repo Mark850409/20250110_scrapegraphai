@@ -545,47 +545,34 @@ def download_file(filename):
 # 修改快速提問列表路由
 @app.route('/api/quick-questions-list', methods=['GET'])
 def get_quick_questions_list():
-    conn = None
     try:
         conn = sqlite3.connect('database.db')
         c = conn.cursor()
         
-        # 檢查表是否存在
+        # 修改 SQL 查詢，確保包含 created_at 欄位
         c.execute('''
-            SELECT name FROM sqlite_master 
-            WHERE type='table' AND name='quick_questions'
+            SELECT id, display_text, sort_order, status, created_at
+            FROM quick_questions 
+            ORDER BY sort_order
         ''')
-        if not c.fetchone():
-            # 如果表不存在，創建表
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS quick_questions (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    display_text TEXT NOT NULL,
-                    sort_order INTEGER NOT NULL,
-                    status INTEGER DEFAULT 1
-                )
-            ''')
-            conn.commit()
-            return jsonify([])  # 返回空列表
-            
-        # 查詢數據
-        c.execute('SELECT id, display_text, sort_order, status FROM quick_questions ORDER BY sort_order')
+        
         questions = [
             {
                 'id': row[0],
                 'display_text': row[1],
                 'sort_order': row[2],
-                'status': row[3]
+                'status': row[3],
+                'created_at': row[4]  # 確保返回 created_at 欄位
             }
             for row in c.fetchall()
         ]
+        
         return jsonify(questions)
         
     except Exception as e:
-        print(f"Error in get_quick_questions_list: {str(e)}")  # 添加日誌
         return jsonify({'error': str(e)}), 500
     finally:
-        if conn:
+        if 'conn' in locals():
             conn.close()
 
 # 修改提示詞列表路由
@@ -895,63 +882,30 @@ def get_quick_questions():
             conn.close()
 
 @app.route('/api/quick-questions', methods=['POST'])
-def add_quick_question():
+def create_quick_question():
     try:
         data = request.get_json()
-        
-        # 驗證必要欄位
-        if not data or 'display_text' not in data or 'sort_order' not in data:
-            return jsonify({
-                'success': False,
-                'message': '缺少必要欄位'
-            }), 400
-
         conn = sqlite3.connect('database.db')
         c = conn.cursor()
         
-        # 插入數據，讓 SQLite 自動設置 created_at
+        # 添加當前時間作為 created_at
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
         c.execute('''
             INSERT INTO quick_questions (display_text, sort_order, status, created_at)
             VALUES (?, ?, ?, ?)
         ''', (
             data['display_text'],
-            int(data['sort_order']),
-            data.get('status', 1),
+            data['sort_order'],
+            data['status'],
             current_time
         ))
         
         conn.commit()
-        
-        # 獲取新插入的記錄
-        c.execute('''
-            SELECT id, display_text, sort_order, status, 
-                   strftime('%Y-%m-%d %H:%M:%S', created_at) as created_at
-            FROM quick_questions WHERE id = last_insert_rowid()
-        ''')
-        
-        row = c.fetchone()
-        
-        if row:
-            return jsonify({
-                'success': True,
-                'message': '新增成功',
-                'data': {
-                    'id': row[0],
-                    'display_text': row[1],
-                    'sort_order': row[2],
-                    'status': row[3],
-                    'created_at': row[4]
-                }
-            })
-        
-        return jsonify({
-            'success': True,
-            'message': '新增成功'
-        })
+        return jsonify({'success': True})
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False, 'message': str(e)}), 500
     finally:
         if 'conn' in locals():
             conn.close()
@@ -1113,24 +1067,39 @@ def batch_delete_questions():
 
 @app.route('/api/quick-questions/check-sort-order', methods=['GET'])
 def check_sort_order():
-    order = request.args.get('order', type=int)
-    exclude_id = request.args.get('exclude_id', type=int)
-    
-    conn = sqlite3.connect('database.db')
-    c = conn.cursor()
-    
-    query = 'SELECT 1 FROM quick_questions WHERE sort_order = ?'
-    params = [order]
-    
-    if exclude_id:
-        query += ' AND id != ?'
-        params.append(exclude_id)
-    
-    c.execute(query, params)
-    exists = c.fetchone() is not None
-    
-    conn.close()
-    return jsonify({'exists': exists})
+    try:
+        order = request.args.get('order', type=int)
+        exclude_id = request.args.get('exclude_id', type=int)
+        
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        
+        # 首先檢查總記錄數
+        c.execute('SELECT COUNT(*) FROM quick_questions')
+        total_count = c.fetchone()[0]
+        
+        # 如果總記錄數小於 2，直接返回不存在
+        if total_count < 2:
+            conn.close()
+            return jsonify({'exists': False})
+        
+        # 如果有兩筆以上才檢查排序
+        query = 'SELECT 1 FROM quick_questions WHERE sort_order = ?'
+        params = [order]
+        
+        if exclude_id:
+            query += ' AND id != ?'
+            params.append(exclude_id)
+        
+        c.execute(query, params)
+        exists = c.fetchone() is not None
+        
+        conn.close()
+        return jsonify({'exists': exists})
+        
+    except Exception as e:
+        app.logger.error(f"Error checking sort order: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 def migrate_quick_questions_db():
     try:
@@ -1296,6 +1265,38 @@ def batch_delete_prompts():
             'success': False,
             'message': f'批量刪除失敗: {str(e)}'
         }), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/active-quick-questions', methods=['GET'])
+def get_active_quick_questions():
+    try:
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        
+        # 只獲取狀態為啟用的快速提問
+        c.execute('''
+            SELECT id, display_text
+            FROM quick_questions 
+            WHERE status = 1
+            ORDER BY sort_order
+        ''')
+        
+        questions = [
+            {
+                'id': row[0],
+                'display_text': row[1]
+            }
+            for row in c.fetchall()
+        ]
+        
+        app.logger.info(f"Returning active questions: {questions}")
+        return jsonify(questions)
+        
+    except Exception as e:
+        app.logger.error(f"Error getting active quick questions: {str(e)}")
+        return jsonify({'error': str(e)}), 500
     finally:
         if 'conn' in locals():
             conn.close()

@@ -26,11 +26,16 @@ function toggleChat() {
 }
 
 // 在頁面載入時初始化
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     // 添加歡迎訊息
     addMessage('bot', '您好！我是您的 AI小助手。我可以：\n1. 協助您了解平台功能與操作方式\n2. 提供專業的數據分析建議\n\n請問有什麼我可以幫您的嗎？');
     
     // 初始化快速問題區塊
+    await initializeQuickQuestions();
+});
+
+// 修改初始化快速問題函數
+async function initializeQuickQuestions() {
     const quickQuestionsHeader = document.querySelector('.quick-questions-header');
     const quickQuestionsContent = document.querySelector('.quick-questions-content');
     const chevronIcon = quickQuestionsHeader.querySelector('i');
@@ -50,7 +55,43 @@ document.addEventListener('DOMContentLoaded', function() {
             chevronIcon.style.transform = 'rotate(180deg)';
         }
     });
-});
+
+    // 載入初始快速問題
+    await updateAIAssistantQuestions();
+}
+
+// 修改 updateAIAssistantQuestions 函數
+async function updateAIAssistantQuestions() {
+    try {
+        const response = await fetch('/api/active-quick-questions');
+        if (!response.ok) throw new Error('Failed to fetch quick questions');
+        
+        const questions = await response.json();
+        
+        // 更新 AI 小助手的快速提問選單
+        const quickQuestionsContent = document.querySelector('.quick-questions-content');
+        if (!quickQuestionsContent) return;
+
+        // 清空現有選單
+        quickQuestionsContent.innerHTML = '';
+
+        // 添加快速提問選項
+        questions.forEach(question => {
+            const button = document.createElement('button');
+            button.className = 'quick-question-btn';
+            button.textContent = question.display_text;
+            button.onclick = () => sendQuickQuestion(question.display_text);
+            quickQuestionsContent.appendChild(button);
+        });
+
+        // 更新選單高度
+        if (quickQuestionsContent.style.maxHeight !== '0px') {
+            quickQuestionsContent.style.maxHeight = quickQuestionsContent.scrollHeight + "px";
+        }
+    } catch (error) {
+        console.error('Error updating AI assistant questions:', error);
+    }
+}
 
 function addMessage(type, content) {
     const messagesContainer = document.getElementById('chatMessages');

@@ -618,44 +618,23 @@ async function loadQuestionsList() {
                     </td>
                 </tr>
             `;
-
-            // 添加延遲以確保 DOM 更新後再顯示動畫
-            setTimeout(() => {
-                const emptyMessage = tbody.querySelector('.empty-message');
-                if (emptyMessage) {
-                    emptyMessage.classList.add('show');
-                }
-            }, 100);
             return;
         }
 
         items.forEach(item => {
+            console.log(item.created_at)
             // 格式化日期時間
-            let formattedDate = '無效日期';
-            try {
-                if (item.created_at) {
-                    // 嘗試轉換 MySQL 日期時間格式
-                    const dateStr = item.created_at.replace(/(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})/, '$1T$2');
-                    const createdAt = new Date(dateStr);
-                    
-                    if (!isNaN(createdAt.getTime())) {
-                        formattedDate = createdAt.toLocaleString('zh-TW', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: false,
-                            timeZone: 'Asia/Taipei'
-                        });
-                    } else {
-                        console.error('無效的日期時間:', item.created_at);
-                    }
-                }
-            } catch (error) {
-                console.error('日期格式化錯誤:', error, item.created_at);
-            }
+            const createdAt = item.created_at 
+                ? new Date(item.created_at).toLocaleString('zh-TW', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                })
+                : '無效日期';
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -669,9 +648,9 @@ async function loadQuestionsList() {
                         ${item.status ? '啟用' : '停用'}
                     </span>
                 </td>
-                <td>${formattedDate}</td>
+                <td>${createdAt}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary me-2" onclick="showAddQuestionModal(${item.id})" title="編輯">
+                    <button class="btn btn-sm btn-primary me-2" onclick="editQuestion(${item.id})" title="編輯">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="deleteQuestion(${item.id})" title="刪除">
@@ -770,35 +749,7 @@ async function loadPromptsList() {
     }
 }
 
-// 編輯提示詞
-async function editPrompt(id) {
-    try {
-        currentEditId = id;
-        isEditing = true;
-        
-        // 更改模態框標題
-        document.getElementById('promptModalTitle').textContent = '編輯提示詞';
-        
-        const response = await fetch(`/api/prompts/${id}`);
-        if (!response.ok) {
-            throw new Error('載入數據失敗');
-        }
-        
-        const data = await response.json();
-        
-        // 填充表單數據
-        document.getElementById('promptName').value = data.name || '';
-        document.getElementById('promptCategory').value = data.category || 'general';
-        document.getElementById('promptContent').value = data.content || '';
-        
-        // 打開模態框
-        const modal = new bootstrap.Modal(document.getElementById('addPromptModal'));
-        modal.show();
-    } catch (error) {
-        console.error('Error:', error);
-        await Swal.fire('錯誤', '載入提示詞數據失敗', 'error');
-    }
-}
+
 
 // 打開新增提示詞對話框
 function openAddPromptModal() {
@@ -812,6 +763,19 @@ function openAddPromptModal() {
     const modal = new bootstrap.Modal(document.getElementById('addPromptModal'));
     modal.show();
 }
+// 打開新增快速提問對話框
+function openAddQuestionModal() {
+    // 重置表單
+    resetPromptForm();
+    
+    // 更改模態框標題為新增
+    document.getElementById('questionModalTitle').textContent = '新增快速提問';
+    
+    // 打開模態框
+    const modal = new bootstrap.Modal(document.getElementById('addQuestionModal'));
+    modal.show();
+}
+
 
 // 刪除提示詞
 async function deletePrompt(id) {
@@ -876,30 +840,58 @@ function toggleSelectAllQuestions() {
     updateBatchDeleteButton();
 }
 
-// 編輯功能
-async function editQuestion(id) {
-    if (!id) return;
-    
+// 編輯提示詞
+async function editPrompt(id) {
     try {
-        const response = await fetch(`/api/quick-questions/${id}`);
+        currentEditId = id;
+        isEditing = true;
+        
+        // 更改模態框標題
+        document.getElementById('promptModalTitle').textContent = '編輯提示詞';
+        
+        const response = await fetch(`/api/prompts/${id}`);
         if (!response.ok) {
             throw new Error('載入數據失敗');
         }
         
         const data = await response.json();
         
-        // 填充表單
-        document.getElementById('questionText').value = data.display_text;
-        document.getElementById('order').value = data.sort_order;
-        document.getElementById('enabled').checked = data.status === 1;
+        // 填充表單數據
+        document.getElementById('promptName').value = data.name || '';
+        document.getElementById('promptCategory').value = data.category || 'general';
+        document.getElementById('promptContent').value = data.content || '';
         
         // 打開模態框
-        const modal = new bootstrap.Modal(document.getElementById('addQuestionModal'));
+        const modal = new bootstrap.Modal(document.getElementById('addPromptModal'));
         modal.show();
-        
     } catch (error) {
         console.error('Error:', error);
-        await Swal.fire('錯誤', '載入數據失敗', 'error');
+        await Swal.fire('錯誤', '載入提示詞數據失敗', 'error');
+    }
+}
+
+//編輯快速提問
+async function editQuestion(id) {
+    try {
+        currentEditId = id;
+        isEditing = true;
+        
+        document.getElementById('questionModalTitle').textContent = '編輯快速提問';
+        
+        const response = await fetch(`/api/quick-questions/${id}`);
+        if (!response.ok) throw new Error('載入數據失敗');
+        
+        const data = await response.json();
+        
+        document.getElementById('questionText').value = data.display_text || '';
+        document.getElementById('order').value = data.sort_order || '';
+        document.getElementById('enabled').checked = data.status === 1;
+        
+        const modal = new bootstrap.Modal(document.getElementById('addQuestionModal'));
+        modal.show();
+    } catch (error) {
+        console.error('Error:', error);
+        await Swal.fire('錯誤', '載入快速提問數據失敗', 'error');
     }
 }
 

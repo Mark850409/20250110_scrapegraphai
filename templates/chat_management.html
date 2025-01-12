@@ -13,19 +13,22 @@
             </div>
         </div>
         
-        <!-- 無數據時的顯示 -->
-        <div class="empty-state" id="quickQuestionsEmpty">
-            <div class="empty-state-icon">
-                <i class="fas fa-comments"></i>
-            </div>
-            <h3>開始建立您的快速提問</h3>
-            <p>快速提問可以幫助您的使用者更快找到所需資訊</p>
-            <div class="empty-state-actions">
-                <button class="btn btn-primary" onclick="createNewQuestion()">
-                    <i class="fas fa-plus"></i> 新增第一個快速提問
-                </button>
-                <a href="#" class="btn btn-link">查看使用教學</a>
-            </div>
+        <!-- 快速提問列表 -->
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAll"></th>
+                        <th>顯示文字</th>
+                        <th>排序</th>
+                        <th>狀態</th>
+                        <th>建立時間</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="questionsList">
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -55,6 +58,38 @@
                     <i class="fas fa-plus"></i> 新增第一個提示詞
                 </button>
                 <a href="#" class="btn btn-link">了解提示詞設定</a>
+            </div>
+        </div>
+    </div>
+</div> 
+
+<!-- 快速提問模態框 -->
+<div class="modal fade" id="quickQuestionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="questionModalTitle">新增快速提問</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="questionForm">
+                    <div class="mb-3">
+                        <label for="questionText" class="form-label">顯示文字</label>
+                        <input type="text" class="form-control" id="questionText" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="order" class="form-label">排序</label>
+                        <input type="number" class="form-control" id="order" required>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="enabled" checked>
+                        <label class="form-check-label" for="enabled">啟用</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveQuestion()">保存</button>
             </div>
         </div>
     </div>
