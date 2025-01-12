@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI大語言模型爬蟲工具{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link href="{{ url_for('static', filename='css/chat.css') }}" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <style>
+        .navbar {
+            padding: 1rem 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background-color: #ffffff !important;
+        }
+        .navbar-brand {
+            font-weight: 600;
+            color: #2c3e50 !important;
+        }
+        .navbar-nav .nav-item {
+            margin: 0 0.5rem;
+        }
+        .navbar-nav .nav-link {
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            color: #2c3e50 !important;
+        }
+        .navbar-nav .nav-link:hover {
+            background-color: rgba(0,0,0,0.05);
+            color: #3498db !important;
+        }
+        .navbar-nav .dropdown-menu {
+            border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        .navbar-nav .dropdown-item {
+            padding: 0.7rem 1.5rem;
+            transition: all 0.3s ease;
+        }
+        .navbar-nav .dropdown-item:hover {
+            background-color: #f8f9fa;
+            color: #3498db;
+        }
+        .navbar-toggler {
+            border: none;
+            padding: 0.5rem;
+        }
+        .navbar-toggler:focus {
+            box-shadow: none;
+            outline: none;
+        }
+        .navbar-nav .nav-link.active {
+            background-color: rgba(52, 152, 219, 0.1);
+            color: #3498db !important;
+        }
+        .dropdown-toggle::after {
+            margin-left: 0.5em;
+            vertical-align: middle;
+        }
+        .footer {
+            background-color: #212529;
+            color: #f8f9fa;
+            padding: 3rem 0;
+            margin-top: 3rem;
+        }
+        .footer a {
+            color: #adb5bd;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        .footer a:hover {
+            color: #f8f9fa;
+        }
+        .footer-title {
+            color: #f8f9fa;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+        .footer-links {
+            list-style: none;
+            padding: 0;
+        }
+        .footer-links li {
+            margin-bottom: 0.75rem;
+        }
+        .footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.1);
+            margin-top: 2rem;
+            padding-top: 2rem;
+            color: #adb5bd;
+        }
+        html, body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .content-wrapper {
+            flex: 1 0 auto;
+            padding-bottom: 3rem; /* 給 footer 留出空間 */
+        }
+
+        .footer {
+            flex-shrink: 0;
+            background-color: #212529;
+            color: #f8f9fa;
+            padding: 3rem 0;
+            width: 100%;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+            <a class="navbar-brand" href="/">AI大語言模型爬蟲工具</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('learning_center') }}">學習中心</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('prompt_management') }}">自定義提示詞</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('pricing') }}">定價</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 添加 content-wrapper div -->
+    <div class="content-wrapper">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4">
+                    <h5 class="footer-title">關於平台</h5>
+                    <p>AI大語言模型爬蟲工具是一個強大的網路爬蟲自動化平台，結合了最新的AI技術，幫助用戶輕鬆完成網路資料收集工作。</p>
+                </div>
+                <div class="col-md-4">
+                    <h5 class="footer-title">快速連結</h5>
+                    <ul class="footer-links">
+                        <li><a href="{{ url_for('index') }}">首頁</a></li>
+                        <li><a href="{{ url_for('learning_center') }}">學習中心</a></li>
+                        <li><a href="{{ url_for('pricing') }}">定價</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h5 class="footer-title">聯絡我們</h5>
+                    <ul class="footer-links">
+                        <li><i class="fas fa-envelope me-2"></i>support@example.com</li>
+                        <li><i class="fas fa-phone me-2"></i>(02) 1234-5678</li>
+                        <li><i class="fas fa-map-marker-alt me-2"></i>台北市信義區信義路五段7號</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom text-center">
+                <p class="mb-0"> 2025 AI大語言模型爬蟲工具. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 先引入必要的依賴 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- 再引入自定義的 JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+
+    <!-- 聊天機器人按鈕和容器 -->
+    <div id="chatWidget" class="chat-widget">
+        <button onclick="toggleChat()" class="chat-button">
+            <i class="fas fa-comments"></i>
+        </button>
+        
+        <div id="chatContainer" class="chat-container">
+            <div class="chat-header">
+                <span>AI 小助手</span>
+                <div class="header-buttons">
+                    <button class="clear-btn" onclick="clearHistory()" title="清除歷史">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="close-btn" onclick="toggleChat()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="chatMessages" class="chat-messages">
+                <!-- 歡迎訊息會在這裡動態添加 -->
+            </div>
+
+            <!-- 新增快速問題區塊 -->
+            <div class="quick-questions-section">
+                <div class="quick-questions-header">
+                    <span>快速問題</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="quick-questions-content">
+                    <button onclick="sendQuickQuestion('爬取評論教學')" class="quick-question-btn">爬取評論教學</button>
+                    <button onclick="sendQuickQuestion('分析功能介紹')" class="quick-question-btn">分析功能介紹</button>
+                    <button onclick="sendQuickQuestion('查詢方案')" class="quick-question-btn">查詢方案</button>
+                </div>
+            </div>
+            
+            <div class="chat-input-container">
+                <input type="text" class="chat-input" 
+                       placeholder="輸入訊息..." 
+                       onkeypress="handleKeyPress(event)">
+                <button class="send-btn" onclick="sendMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+    {% block extra_js %}{% endblock %}
+
+</body>
+</html>

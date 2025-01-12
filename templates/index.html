@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="text-center mb-5">
+        <h1>AI大語言模型爬蟲工具</h1>
+        <p class="lead">結合最新AI技術的網路爬蟲自動化平台</p>
+    </div>
+
+    <div class="row g-4">
+        <!-- 智能爬取 -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">智能爬取</h5>
+                    <p class="card-text">使用AI技術智能分析網頁結構，自動生成爬蟲策略。</p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('smart_scraper') }}" class="btn btn-primary w-100">開始使用</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 腳本生成 -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">腳本生成</h5>
+                    <p class="card-text">AI協助生成Python爬蟲腳本，快速實現資料收集。</p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('script_creator') }}" class="btn btn-primary w-100">開始使用</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 執行腳本 -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">執行腳本</h5>
+                    <p class="card-text">執行生成的爬蟲腳本，並查看執行結果。</p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('execute_script_page') }}" class="btn btn-primary w-100">開始使用</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5 g-4">
+        <!-- 學習中心 -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">學習中心</h5>
+                    <p class="card-text">查看教學文件和使用說明，快速上手平台功能。</p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('learning_center') }}" class="btn btn-outline-primary w-100">查看更多</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 自定義提示詞 -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">自定義提示詞</h5>
+                    <p class="card-text">管理和自定義AI提示詞，優化爬蟲效果。</p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('prompt_management') }}" class="btn btn-outline-primary w-100">開始設定</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 腳本生成紀錄 -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">腳本生成紀錄</h5>
+                    <p class="card-text">查看和管理已生成的爬蟲腳本歷史紀錄。</p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('script_records') }}" class="btn btn-outline-primary w-100">查看紀錄</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

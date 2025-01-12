@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI大語言模型爬蟲工具</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+            <a class="navbar-brand" href="/">AI大語言模型爬蟲工具</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">主功能</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" data-function="smart-scrape">智能爬取</a></li>
+                            <li><a class="dropdown-item" href="#" data-function="script-gen">腳本生成</a></li>
+                            <li><a class="dropdown-item" href="#" data-function="execute-script">執行腳本</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('script_records') }}">腳本生成紀錄</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('learning_center') }}">學習中心</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('pricing') }}">定價</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container my-4">
+        <!-- Smart Scrape Card -->
+        <div class="card function-card" id="smart-scrape-card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    智能爬取
+                    <a href="{{ url_for('learning_center') }}#prompt-tutorial" class="ms-2 text-decoration-none" title="查看提示詞撰寫教學">
+                        <i class="fas fa-question-circle"></i>
+                    </a>
+                </h5>
+                <form id="smart-scrape-form">
+                    <div class="mb-3">
+                        <label class="form-label">選擇模型類型</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="graph-name" value="chatgpt" id="chatgpt1" checked>
+                            <label class="btn btn-outline-primary" for="chatgpt1">ChatGPT</label>
+                            <input type="radio" class="btn-check" name="graph-name" value="gemini" id="gemini1">
+                            <label class="btn btn-outline-primary" for="gemini1">Gemini</label>
+                            <input type="radio" class="btn-check" name="graph-name" value="ollama" id="ollama1">
+                            <label class="btn btn-outline-primary" for="ollama1">Ollama</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">選擇模型</label>
+                        <select class="form-select" name="model-name" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">網址</label>
+                        <input type="url" class="form-control" name="url" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">提示詞
+                            <a href="{{ url_for('learning_center') }}#prompt-tutorial" class="ms-1 text-decoration-none" title="查看提示詞撰寫教學">
+                                <i class="fas fa-question-circle"></i>
+                            </a>
+                        </label>
+                        <textarea class="form-control" name="prompt" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3 api-key-field">
+                        <label class="form-label">API Key</label>
+                        <input type="password" class="form-control" name="api-key">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">檔案名稱</label>
+                        <input type="text" class="form-control" name="file-name" value="output.csv">
+                    </div>
+                    <button type="submit" class="btn btn-primary">開始爬取</button>
+                </form>
+                <div class="mt-3" id="smart-scrape-result" style="display: none;">
+                    <h6>爬取結果</h6>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>團體名稱</th>
+                                    <th>出道年份</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <a href="#" class="btn btn-success download-btn" style="display: none;">下載 CSV</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Script Generator Card -->
+        <div class="card function-card" id="script-gen-card" style="display: none;">
+            <div class="card-body">
+                <h5 class="card-title">
+                    腳本生成
+                    <a href="{{ url_for('learning_center') }}#prompt-tutorial" class="ms-2 text-decoration-none" title="查看提示詞撰寫教學">
+                        <i class="fas fa-question-circle"></i>
+                    </a>
+                </h5>
+                <form id="script-gen-form">
+                    <div class="mb-3">
+                        <label class="form-label">選擇模型類型</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="graph-name" value="chatgpt" id="chatgpt2" checked>
+                            <label class="btn btn-outline-primary" for="chatgpt2">ChatGPT</label>
+                            <input type="radio" class="btn-check" name="graph-name" value="gemini" id="gemini2">
+                            <label class="btn btn-outline-primary" for="gemini2">Gemini</label>
+                            <input type="radio" class="btn-check" name="graph-name" value="ollama" id="ollama2">
+                            <label class="btn btn-outline-primary" for="ollama2">Ollama</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">選擇模型</label>
+                        <select class="form-select" name="model-name" required></select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">網址</label>
+                        <input type="url" class="form-control" name="url" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">提示詞
+                            <a href="{{ url_for('learning_center') }}#prompt-tutorial" class="ms-1 text-decoration-none" title="查看提示詞撰寫教學">
+                                <i class="fas fa-question-circle"></i>
+                            </a>
+                        </label>
+                        <textarea class="form-control" name="prompt" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3 api-key-field">
+                        <label class="form-label">API Key</label>
+                        <input type="password" class="form-control" name="api-key">
+                    </div>
+                    <button type="submit" class="btn btn-primary">生成腳本</button>
+                </form>
+                <div class="mt-3" id="script-gen-result" style="display: none;">
+                    <h6>生成的腳本</h6>
+                    <div class="alert alert-info">
+                        <strong>執行時間：</strong> <span class="duration"></span> 秒
+                    </div>
+                    <pre><code class="python"></code></pre>
+                    <button class="btn btn-primary copy-btn">
+                        <i class="fas fa-copy"></i> 複製腳本
+                    </button>
+                    <button class="btn btn-success execute-btn">
+                        <i class="fas fa-play"></i> 執行腳本
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Execute Script Card -->
+        <div class="card function-card" id="execute-script-card" style="display: none;">
+            <div class="card-body">
+                <h5 class="card-title">執行腳本</h5>
+                <form id="execute-script-form">
+                    <div class="mb-3">
+                        <label class="form-label">輸入腳本</label>
+                        <textarea class="form-control" name="script" rows="10" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">CSV檔案名稱</label>
+                        <input type="text" class="form-control" name="csv-filename" value="output.csv">
+                    </div>
+                    <button type="submit" class="btn btn-primary">執行腳本</button>
+                </form>
+                <div class="mt-3" id="execute-script-result" style="display: none;">
+                    <h6>執行結果</h6>
+                    <div class="alert" role="alert"></div>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <a href="#" class="btn btn-success download-btn" style="display: none;">下載 CSV</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer bg-light mt-5">
+        <div class="container py-5">
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <h5>關於平台</h5>
+                    <p>AI大語言模型爬蟲工具是一個強大的網路爬蟲自動化平台，結合了最新的AI技術，幫助用戶輕鬆完成網路資料收集工作。</p>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h5>快速連結</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/" class="text-decoration-none">首頁</a></li>
+                        <li><a href="{{ url_for('learning_center') }}" class="text-decoration-none">學習中心</a></li>
+                        <li><a href="{{ url_for('learning_center') }}#faq" class="text-decoration-none">常見問題</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <h5>聯絡我們</h5>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-envelope me-2"></i>support@example.com</li>
+                        <li><i class="fas fa-phone me-2"></i>(02) 1234-5678</li>
+                        <li><i class="fas fa-map-marker-alt me-2"></i>台北市信義區信義路五段7號</li>
+                    </ul>
+                </div>
+            </div>
+            <hr>
+            <div class="text-center">
+                <p class="mb-0">&copy; 2025 AI大語言模型爬蟲工具. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            {% if active_function %}
+            // 根據 URL 參數切換功能
+            switchFunction('{{ active_function }}');
+            {% endif %}
+
+            // 為所有功能按鈕添加點擊事件
+            document.querySelectorAll('[data-function]').forEach(function(element) {
+                element.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const functionName = this.getAttribute('data-function');
+                    switchFunction(functionName);
+                    // 更新 URL，但不重新加載頁面
+                    history.pushState({}, '', '/' + functionName);
+                });
+            });
+        });
+
+        function switchFunction(functionName) {
+            // 隱藏所有功能卡片
+            document.querySelectorAll('.function-card').forEach(function(card) {
+                card.style.display = 'none';
+            });
+            
+            // 顯示選中的功能卡片
+            const targetCard = document.getElementById(functionName + '-card');
+            if (targetCard) {
+                targetCard.style.display = 'block';
+            }
+            
+            // 更新導航欄中的活動項
+            document.querySelectorAll('.dropdown-item').forEach(function(item) {
+                item.classList.remove('active');
+                if (item.getAttribute('data-function') === functionName) {
+                    item.classList.add('active');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

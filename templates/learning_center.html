@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block title %}學習中心 - AI大語言模型爬蟲工具{% endblock %}
+
+{% block extra_css %}
+<style>
+    .accordion-button:not(.collapsed) {
+        background-color: #f8f9fa;
+        color: #0d6efd;
+    }
+    .qa-image {
+        max-width: 100%;
+        height: auto;
+        margin: 1rem 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .section-nav {
+        position: sticky;
+        top: 20px;
+    }
+    .section-nav .nav-link {
+        padding: 0.25rem 0;
+        color: #666;
+    }
+    .section-nav .nav-link.active {
+        color: #0d6efd;
+        font-weight: bold;
+    }
+    .download-template {
+        padding: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        margin: 1rem 0;
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    .download-template:hover {
+        background-color: #e9ecef;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row">
+        <!-- Side Navigation -->
+        <div class="col-lg-3">
+            <div class="section-nav">
+                <h5 class="mb-3">目錄</h5>
+                <nav class="nav flex-column">
+                    <a class="nav-link active" href="#basic-usage">基本使用說明</a>
+                    <a class="nav-link" href="#prompt-tutorial">提示詞生成教學</a>
+                    <a class="nav-link" href="#prompt-templates">提示詞範本下載</a>
+                    <a class="nav-link" href="#faq">常見問題</a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <!-- 基本使用說明 -->
+            <section id="basic-usage" class="mb-5">
+                <h2 class="mb-4">基本使用說明</h2>
+                <div class="accordion" id="basicUsageAccordion">
+                    <div class="accordion-item">
+                        <h3 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#basicQ1">
+                                如何開始使用AI大語言模型爬蟲工具？
+                            </button>
+                        </h3>
+                        <div id="basicQ1" class="accordion-collapse collapse show">
+                            <div class="accordion-body">
+                                <p>使用步驟如下：</p>
+                                <ol>
+                                    <li>在首頁輸入您要爬取的網址</li>
+                                    <li>選擇適合的提示詞模板或自行輸入提示詞</li>
+                                    <li>點擊「開始爬取」按鈕</li>
+                                    <li>等待系統處理完成後，即可查看結果</li>
+                                </ol>
+                                <img src="/static/images/basic-usage.png" alt="基本使用步驟" class="qa-image">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 提示詞生成教學 -->
+            <section id="prompt-tutorial" class="mb-5">
+                <h2 class="mb-4">提示詞生成教學</h2>
+                <div class="accordion" id="promptTutorialAccordion">
+                    <div class="accordion-item">
+                        <h3 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#promptQ1">
+                                什麼是好的提示詞？
+                            </button>
+                        </h3>
+                        <div id="promptQ1" class="accordion-collapse collapse show">
+                            <div class="accordion-body">
+                                <p>一個好的提示詞應該包含以下要素：</p>
+                                <ul>
+                                    <li>明確的目標和要求</li>
+                                    <li>具體的輸出格式指示</li>
+                                    <li>清晰的上下文信息</li>
+                                </ul>
+                                <img src="/static/images/prompt-example.png" alt="提示詞示例" class="qa-image">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#promptQ2">
+                                如何優化提示詞以獲得更好的結果？
+                            </button>
+                        </h3>
+                        <div id="promptQ2" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>優化提示詞的技巧：</p>
+                                <ul>
+                                    <li>使用具體的動詞和描述性語言</li>
+                                    <li>設定明確的輸出格式要求</li>
+                                    <li>提供相關的示例</li>
+                                    <li>適當使用溫度和其他參數設置</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 提示詞範本下載 -->
+            <section id="prompt-templates" class="mb-5">
+                <h2 class="mb-4">提示詞範本下載</h2>
+                <div class="row g-4">
+                    <!-- 電商平台提示詞範本 -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">電商平台提示詞範本</h5>
+                                <p class="card-text">專門針對電商平台優化的提示詞，包含：</p>
+                                <ul class="list-unstyled mb-4">
+                                    <li><i class="fas fa-check text-success me-2"></i>商品資訊爬取</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>價格監控</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>評價分析</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>銷售數據收集</li>
+                                </ul>
+                                <a href="{{ url_for('static', filename='templates/ecommerce_prompt.txt') }}" class="btn btn-primary" download>下載範本</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 新聞網站提示詞範本 -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">新聞網站提示詞範本</h5>
+                                <p class="card-text">針對新聞網站內容擷取優化的提示詞，包含：</p>
+                                <ul class="list-unstyled mb-4">
+                                    <li><i class="fas fa-check text-success me-2"></i>新聞標題與內文</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>發布時間與作者</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>相關標籤</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>讀者回應</li>
+                                </ul>
+                                <a href="{{ url_for('static', filename='templates/news_prompt.txt') }}" class="btn btn-primary" download>下載範本</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 社交媒體提示詞範本 -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">社交媒體提示詞範本</h5>
+                                <p class="card-text">專門針對社交平台優化的提示詞，包含：</p>
+                                <ul class="list-unstyled mb-4">
+                                    <li><i class="fas fa-check text-success me-2"></i>貼文內容收集</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>互動數據分析</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>用戶評論擷取</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>話題趨勢追蹤</li>
+                                </ul>
+                                <a href="{{ url_for('static', filename='templates/social_media_prompt.txt') }}" class="btn btn-primary" download>下載範本</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 論壇提示詞範本 -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">論壇提示詞範本</h5>
+                                <p class="card-text">針對論壇討論內容優化的提示詞，包含：</p>
+                                <ul class="list-unstyled mb-4">
+                                    <li><i class="fas fa-check text-success me-2"></i>討論串內容</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>回覆內容收集</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>用戶互動分析</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>熱門話題追蹤</li>
+                                </ul>
+                                <a href="{{ url_for('static', filename='templates/forum_prompt.txt') }}" class="btn btn-primary" download>下載範本</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 常見問題 -->
+            <section id="faq" class="mb-5">
+                <h2 class="mb-4">常見問題</h2>
+                <div class="accordion" id="faqAccordion">
+                    <div class="accordion-item">
+                        <h3 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faqQ1">
+                                AI大語言模型爬蟲工具支援哪些網站？
+                            </button>
+                        </h3>
+                        <div id="faqQ1" class="accordion-collapse collapse show">
+                            <div class="accordion-body">
+                                <p>本工具支援大多數常見的網站類型，包括：</p>
+                                <ul>
+                                    <li>新聞網站</li>
+                                    <li>電商平台</li>
+                                    <li>部落格</li>
+                                    <li>企業網站</li>
+                                </ul>
+                                <p>注意：部分需要登入或有特殊反爬蟲機制的網站可能無法正常爬取。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqQ2">
+                                爬取速度受哪些因素影響？
+                            </button>
+                        </h3>
+                        <div id="faqQ2" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <ul>
+                                    <li>網站的響應速度</li>
+                                    <li>提示詞的複雜度</li>
+                                    <li>需要處理的數據量</li>
+                                    <li>系統當前的負載情況</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h3 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqQ3">
+                                如何處理爬取失敗的情況？
+                            </button>
+                        </h3>
+                        <div id="faqQ3" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>當爬取失敗時，您可以：</p>
+                                <ol>
+                                    <li>檢查網址是否正確</li>
+                                    <li>確認網站是否可以正常訪問</li>
+                                    <li>調整提示詞的複雜度</li>
+                                    <li>稍後重試</li>
+                                </ol>
+                                <p>如果問題持續存在，請聯繫技術支援。</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 側邊導航欄的 active 狀態
+    const navLinks = document.querySelectorAll('.section-nav .nav-link');
+    navLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            navLinks.forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+});
+</script>
+{% endblock %}

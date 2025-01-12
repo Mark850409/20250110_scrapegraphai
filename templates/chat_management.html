@@ -1,0 +1,61 @@
+<div class="chat-management-container">
+    <!-- 快速提問管理區塊 -->
+    <div class="management-section">
+        <div class="section-header">
+            <h2>快速提問管理</h2>
+            <div class="header-buttons">
+                <button class="btn btn-secondary" onclick="batchDelete('quick')">
+                    <i class="fas fa-trash-alt"></i> 批量刪除
+                </button>
+                <button class="btn btn-primary" onclick="createNewQuestion()">
+                    <i class="fas fa-plus"></i> 新增快速提問
+                </button>
+            </div>
+        </div>
+        
+        <!-- 無數據時的顯示 -->
+        <div class="empty-state" id="quickQuestionsEmpty">
+            <div class="empty-state-icon">
+                <i class="fas fa-comments"></i>
+            </div>
+            <h3>開始建立您的快速提問</h3>
+            <p>快速提問可以幫助您的使用者更快找到所需資訊</p>
+            <div class="empty-state-actions">
+                <button class="btn btn-primary" onclick="createNewQuestion()">
+                    <i class="fas fa-plus"></i> 新增第一個快速提問
+                </button>
+                <a href="#" class="btn btn-link">查看使用教學</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示詞管理區塊 -->
+    <div class="management-section">
+        <div class="section-header">
+            <h2>提示詞管理</h2>
+            <div class="header-buttons">
+                <button class="btn btn-secondary" onclick="batchDelete('prompt')">
+                    <i class="fas fa-trash-alt"></i> 批量刪除
+                </button>
+                <button class="btn btn-primary" onclick="createNewPrompt()">
+                    <i class="fas fa-plus"></i> 新增提示詞
+                </button>
+            </div>
+        </div>
+        
+        <!-- 無數據時的顯示 -->
+        <div class="empty-state" id="promptsEmpty">
+            <div class="empty-state-icon">
+                <i class="fas fa-lightbulb"></i>
+            </div>
+            <h3>開始建立您的提示詞</h3>
+            <p>提示詞可以幫助AI更準確地理解您的需求</p>
+            <div class="empty-state-actions">
+                <button class="btn btn-primary" onclick="createNewPrompt()">
+                    <i class="fas fa-plus"></i> 新增第一個提示詞
+                </button>
+                <a href="#" class="btn btn-link">了解提示詞設定</a>
+            </div>
+        </div>
+    </div>
+</div> 

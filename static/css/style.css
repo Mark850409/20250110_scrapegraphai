@@ -1,0 +1,532 @@
+/* 聊天機器人樣式 */
+.chat-widget {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.chat-button {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #0d6efd;
+    border: none;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease;
+}
+
+.chat-button:hover {
+    transform: scale(1.1);
+}
+
+.ai-helper {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    width: 350px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: none;
+    flex-direction: column;
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+.chat-header {
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f8f9fa;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 15px;
+    height: 300px;
+    overflow-y: auto;
+}
+
+.message {
+    margin: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    max-width: 80%;
+}
+
+.message.user {
+    background: #e3f2fd;
+    margin-left: auto;
+}
+
+.message.bot {
+    background: #f5f5f5;
+    margin-right: auto;
+}
+
+.chat-input-container {
+    padding: 15px;
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 10px;
+}
+
+.chat-input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    outline: none;
+}
+
+.send-btn {
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quick-questions-section {
+    padding: 0 15px 15px;
+}
+
+.quick-questions-title {
+    margin-bottom: 10px;
+    color: #666;
+}
+
+.quick-questions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.quick-question-btn {
+    padding: 6px 12px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 16px;
+    font-size: 14px;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.quick-question-btn:hover {
+    background: #e9ecef;
+}
+.chatbot-overlay {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 300px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+}
+
+.chatbot-header {
+    background-color: #007bff;
+    color: white;
+    padding: 10px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.close-btn {
+    cursor: pointer;
+}
+
+.chatbot-body {
+    padding: 10px;
+    flex-grow: 1;
+}
+
+.chatbot-footer {
+    display: flex;
+    padding: 10px;
+}
+
+.chatbot-footer input {
+    flex-grow: 1;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.chatbot-footer button {
+    margin-left: 5px;
+    padding: 5px 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* 管理頁面樣式 */
+.page-title {
+    color: #2c3e50;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+.management-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    margin-bottom: 2rem;
+}
+
+.management-card .card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #eef2f7;
+    padding: 1.2rem 1.5rem;
+}
+
+.management-card .card-header h5 {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.management-card .card-body {
+    padding: 1.5rem;
+}
+
+/* 空狀態樣式 */
+.empty-state {
+    padding: 3rem 1.5rem;
+    text-align: center;
+    background: #f8fafc;
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.empty-state-content {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.empty-state-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    background: linear-gradient(135deg, #e9ecef 0%, #f8f9fa 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.empty-state:hover .empty-state-icon {
+    transform: scale(1.05) rotate(5deg);
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.08);
+}
+
+.empty-state-icon i {
+    font-size: 32px;
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.empty-state h4 {
+    color: #2c3e50;
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+
+.empty-state p {
+    color: #6c757d;
+    margin-bottom: 1.5rem;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.empty-state-actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.empty-state-actions .btn {
+    padding: 0.625rem 1.25rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.empty-state-actions .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(13, 110, 253, 0.15);
+}
+
+/* 按鈕樣式 */
+.btn {
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border: none;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(13, 110, 253, 0.15);
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    border: none;
+}
+
+.btn-secondary:hover {
+    background-color: #5c636a;
+    transform: translateY(-1px);
+}
+
+.btn-link {
+    color: #0d6efd;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+}
+
+.btn-link:hover {
+    text-decoration: underline;
+    background-color: rgba(13, 110, 253, 0.05);
+    border-radius: 6px;
+}
+
+/* 表格樣式 */
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    background-color: #f8fafc;
+    font-weight: 600;
+    color: #2c3e50;
+    border-bottom: 2px solid #eef2f7;
+}
+
+.table td {
+    vertical-align: middle;
+    color: #495057;
+    border-bottom: 1px solid #eef2f7;
+}
+
+.table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+/* 響應式調整 */
+@media (max-width: 768px) {
+    .card-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .header-buttons {
+        width: 100%;
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .empty-state-actions {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+    }
+}
+
+/* 添加無數據行的樣式 */
+.no-data-row {
+    background: none !important;
+}
+
+.no-data-row:hover {
+    background: none !important;
+}
+
+.no-data-row td {
+    padding: 0 !important;
+    border: none !important;
+}
+
+/* 美化暫無數據的顯示 */
+tr td:has(+ td:contains("暫無數據")) {
+    background: #f8f9fa !important;
+    padding: 40px !important;
+    text-align: center;
+}
+
+tr td:has(+ td:contains("暫無數據")) + td {
+    position: relative;
+    background: #f8f9fa !important;
+    padding: 0 !important;
+    text-align: center;
+}
+
+tr td:has(+ td:contains("暫無數據")) + td::before {
+    content: '\f4ad';  /* FontAwesome 對話圖示 */
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    font-size: 2rem;
+    color: #0d6efd;
+    display: block;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+tr:has(td:contains("暫無數據")) {
+    background: #f8f9fa !important;
+}
+
+tr:has(td:contains("暫無數據")):hover {
+    background: #f8f9fa !important;
+}
+
+tr td:has(+ td:contains("暫無數據")) + td::after {
+    content: '您可以點擊右上角的新增按鈕來創建';
+    display: block;
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+/* 初始狀態隱藏美化樣式 */
+td:contains("暫無數據") {
+    opacity: 0;
+}
+
+/* 載入完成後的美化樣式 */
+.no-data-styled {
+    opacity: 1 !important;
+    transition: opacity 0.3s ease;
+    padding: 40px !important;
+    text-align: center;
+    background: #f8fafc !important;
+}
+
+/* 圖標 */
+.no-data-styled::before {
+    content: '\f4ad';  /* FontAwesome 對話圖示 */
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    font-size: 32px;
+    display: block;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* 文字內容 */
+.no-data-styled::after {
+    content: '您可以點擊右上角的新增按鈕來創建';
+    display: block;
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-top: 8px;
+}
+
+/* 整行樣式 */
+tr:has(.no-data-styled) {
+    background: #f8fafc !important;
+}
+
+tr:has(.no-data-styled) td {
+    border: none !important;
+}
+
+/* 初始狀態隱藏 */
+.empty-message {
+    opacity: 0;
+}
+
+/* 載入完成後的樣式 */
+.empty-message.show {
+    opacity: 1;
+    transition: opacity 0.3s ease;
+    padding: 40px 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    background: #fff;
+}
+
+/* 圖標樣式 */
+.empty-message i {
+    font-size: 24px;
+    margin-bottom: 16px;
+    color: #0d6efd;
+}
+
+/* 標題樣式 */
+.empty-message h4 {
+    font-size: 1.1rem;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+/* 描述文字樣式 */
+.empty-message p {
+    color: #6c757d;
+    margin-bottom: 20px;
+    max-width: 400px;
+}
+
+/* 按鈕樣式 */
+.empty-message .btn {
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.empty-message .btn i {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* 表格容器樣式 */
+.table-container {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="page-title">聊天機器人管理</h2>
+    
+    <!-- 快速提問管理區塊 -->
+    <div class="card management-card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">快速提問管理</h5>
+            <div class="header-buttons">
+                <button class="btn btn-secondary me-2" id="batchDeleteBtn">
+                    <i class="fas fa-trash-alt me-1"></i>批量刪除
+                </button>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addQuestionModal">
+                    <i class="fas fa-plus me-1"></i>新增快速提問
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- 表格區域 -->
+            <div class="table-responsive" id="questionsTableWrapper">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAllQuestions"></th>
+                            <th>顯示文字</th>
+                            <th>排序</th>
+                            <th>狀態</th>
+                            <th>建立時間</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="questionsList">
+                        
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示詞管理區塊 -->
+    <div class="card management-card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">提示詞管理</h5>
+            <div class="header-buttons">
+                <button class="btn btn-secondary me-2" onclick="batchDeletePrompts()">
+                    <i class="fas fa-trash-alt me-1"></i>批量刪除
+                </button>
+                <button class="btn btn-primary" onclick="openAddPromptModal()">
+                    <i class="fas fa-plus me-1"></i>新增提示詞
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- 表格區域 -->
+            <div class="table-responsive" id="promptsTableWrapper">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="select-all"></th>
+                            <th>顯示文字</th>
+                            <th>排序</th>
+                            <th>狀態</th>
+                            <th>建立時間</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="prompts-table-body">
+                        <!-- 當無數據時顯示 -->
+                        
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增快速提問模態框 -->
+<div class="modal fade" id="addQuestionModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新增快速提問</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="questionForm">
+                    <div class="mb-3">
+                        <label class="form-label">顯示文字</label>
+                        <input type="text" class="form-control" id="questionText" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="order">排序</label>
+                        <input type="number" class="form-control" id="order" name="order" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="enabled" name="enabled" checked>
+                            <label class="form-check-label" for="enabled">啟用</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveQuickQuestion()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增/編輯提示詞模態框 -->
+<div class="modal fade" id="addPromptModal">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="promptModalTitle">新增提示詞</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="promptForm">
+                    <div class="mb-3">
+                        <label class="form-label">提示詞名稱</label>
+                        <input type="text" class="form-control" id="promptName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">分類</label>
+                        <select class="form-control" id="promptCategory">
+                            <option value="general">一般對話</option>
+                            <option value="analysis">數據分析</option>
+                            <option value="tutorial">教學指導</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">提示詞內容</label>
+                        <textarea class="form-control" id="promptContent" rows="6" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="savePrompt()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- 必要的 Bootstrap JavaScript -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/prompt_management.js') }}"></script>
+{% endblock %}
+</body>
+</html> 
