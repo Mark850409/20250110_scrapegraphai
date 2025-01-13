@@ -144,21 +144,67 @@
     align-items: center;
     cursor: pointer;
     padding: 5px 0;
+    margin-bottom: 10px;
 }
 
-.quick-questions-header i {
+.quick-questions-header .title {
+    font-weight: 500;
+    color: #495057;
+}
+
+.quick-questions-header .toggle-btn {
+    background: none;
+    border: none;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 5px;
     transition: transform 0.3s ease;
+}
+
+.quick-questions-header .toggle-btn.collapsed {
+    transform: rotate(-180deg);
+}
+
+.quick-questions-wrapper {
+    position: relative;
+    padding: 0 25px;
+    transition: all 0.3s ease;
+}
+
+.quick-questions-wrapper.collapsed {
+    padding: 0;
+    margin: 0;
+    height: 0;
 }
 
 .quick-questions-content {
     display: flex;
-    flex-wrap: wrap;
+    overflow-x: auto;
     gap: 8px;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-    max-height: none; /* 初始展開狀態 */
+    padding: 5px 0;
+    scroll-behavior: smooth;
+    transition: all 0.3s ease;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    white-space: nowrap;
+    overflow-y: hidden;
+    max-height: 50px;
 }
 
+.quick-questions-content.collapsed {
+    max-height: 0;
+    padding: 0;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* 隱藏 Webkit 瀏覽器的滾動條 */
+.quick-questions-content::-webkit-scrollbar {
+    display: none;
+}
+
+/* 修改快速問題按鈕樣式 */
 .quick-question-btn {
     padding: 6px 12px;
     background: #f8f9fa;
@@ -168,6 +214,8 @@
     color: #495057;
     cursor: pointer;
     transition: all 0.2s;
+    white-space: nowrap;
+    flex: 0 0 auto;
 }
 
 .quick-question-btn:hover {
@@ -175,44 +223,127 @@
     border-color: #ced4da;
 }
 
-/* 添加思考中的動畫樣式 */
-.thinking {
-    padding: 10px 15px;
+/* 修改滾動按鈕樣式 */
+.scroll-button {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s;
 }
 
+.scroll-button:hover {
+    background: #f8f9fa;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.scroll-button i {
+    font-size: 12px;
+    color: #495057;
+}
+
+.scroll-button.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.scroll-left {
+    left: 0;
+}
+
+.scroll-right {
+    right: 0;
+}
+
+/* 折疊按鈕樣式 */
+.toggle-btn {
+    background: none;
+    border: none;
+    padding: 5px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.toggle-btn i {
+    color: #6c757d;
+}
+
+.toggle-btn.collapsed i {
+    transform: rotate(180deg);
+}
+
+/* 思考中的動畫容器 */
+.thinking {
+    padding: 12px 16px;
+    background: #f0f7ff;
+    border-radius: 15px;
+    margin: 8px 0;
+    max-width: 60%;
+    align-self: flex-start;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* AI 頭像 */
+.thinking .avatar {
+    width: 28px;
+    height: 28px;
+    background: #0d6efd;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.thinking .avatar i {
+    color: white;
+    font-size: 14px;
+}
+
+/* 思考中的動畫點點 */
 .thinking-dots {
     display: flex;
+    align-items: center;
     gap: 4px;
+    padding: 4px 8px;
 }
 
+/* 每個點的基本樣式 */
 .thinking-dots span {
     width: 8px;
     height: 8px;
-    background-color: #0d6efd;
+    background: #0d6efd;
     border-radius: 50%;
     display: inline-block;
-    animation: thinking 1.4s infinite ease-in-out;
+    opacity: 0.3;
+    animation: pulse 1.4s infinite;
 }
 
-.thinking-dots span:nth-child(1) {
-    animation-delay: 0s;
-}
+/* 為每個點設置不同的動畫延遲 */
+.thinking-dots span:nth-child(1) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(2) { animation-delay: 0.4s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.6s; }
 
-.thinking-dots span:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.thinking-dots span:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-@keyframes thinking {
-    0%, 80%, 100% { 
-        transform: scale(0);
-        opacity: 0.2;
-    }
-    40% { 
+/* 定義動畫效果 */
+@keyframes pulse {
+    0%, 100% {
         transform: scale(1);
+        opacity: 0.3;
+    }
+    50% {
+        transform: scale(1.2);
         opacity: 1;
     }
 }
@@ -286,4 +417,75 @@
 
 .no-data-container .btn i {
     font-size: 0.9rem;
+}
+
+.quick-questions-header i {
+    transition: transform 0.3s ease;
+}
+
+/* 只添加必要的折疊/展開相關樣式 */
+.quick-questions-content {
+    transition: max-height 0.3s ease;
+    overflow-y: hidden;
+}
+
+.quick-questions-header i {
+    transition: transform 0.3s ease;
+}
+
+/* 提示詞內容區塊樣式 */
+.content-wrapper {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.content-preview {
+    min-height: 60px;
+    max-height: 100px;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    background-color: #f8f9fa;
+    overflow: hidden;
+    position: relative;
+}
+
+.content-preview.expanded {
+    max-height: none;
+}
+
+.content-preview::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, #f8f9fa);
+    pointer-events: none;
+}
+
+.content-preview.expanded::after {
+    display: none;
+}
+
+.expand-btn {
+    position: absolute;
+    bottom: -30px;
+    right: 0;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.expand-btn i {
+    transition: transform 0.3s ease;
+}
+
+.expand-btn.expanded i {
+    transform: rotate(180deg);
+}
+
+textarea#content {
+    min-height: 200px;
+    margin-top: 1rem;
 } 

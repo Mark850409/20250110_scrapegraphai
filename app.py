@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from typing import List
 import time
 import google.generativeai as genai
+from sqlalchemy import func
 
 app = Flask(__name__)
 load_dotenv()
@@ -54,31 +55,33 @@ with app.app_context():
 # 初始化提示詞資料表
 def init_prompt_db():
     try:
-        conn = sqlite3.connect('prompts.db')
+        conn = sqlite3.connect('database.db')
         c = conn.cursor()
         
-        # 提示詞表
+        # 檢查表是否存在
         c.execute('''
-            CREATE TABLE IF NOT EXISTS prompts
-            (id INTEGER PRIMARY KEY AUTOINCREMENT,
-             name TEXT NOT NULL,
-             content TEXT NOT NULL,
-             category TEXT NOT NULL,
-             created_at DATETIME NOT NULL)
+            SELECT count(name) FROM sqlite_master 
+            WHERE type='table' AND name='prompts'
         ''')
         
-        # 快速提問表
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS quick_questions
-            (id INTEGER PRIMARY KEY AUTOINCREMENT,
-             text TEXT NOT NULL,
-             order_num INTEGER DEFAULT 0,
-             is_active BOOLEAN DEFAULT 1)
-        ''')
+        # 只在表不存在時創建表
+        if c.fetchone()[0] == 0:
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS prompts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    sort_order INTEGER NOT NULL,
+                    status INTEGER DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            print("Successfully created prompts table")
         
         conn.commit()
     except Exception as e:
-        app.logger.error(f"Error initializing prompts database: {str(e)}")
+        print(f"Error initializing prompts database: {str(e)}")
         raise
     finally:
         if conn:
@@ -583,10 +586,9 @@ def get_prompts():
         c = conn.cursor()
         
         c.execute('''
-            SELECT id, name, category, content, status, 
-                   strftime('%Y-%m-%d %H:%M:%S', created_at) as created_at
-            FROM prompts 
-            ORDER BY created_at DESC
+            SELECT id, name, category, content, sort_order, status, created_at
+            FROM prompts
+            ORDER BY sort_order
         ''')
         
         prompts = []
@@ -596,8 +598,9 @@ def get_prompts():
                 'name': row[1],
                 'category': row[2],
                 'content': row[3],
-                'status': row[4],
-                'created_at': row[5]
+                'sort_order': row[4],  # 確保返回正確的排序值
+                'status': row[5],
+                'created_at': row[6]
             })
             
         return jsonify(prompts)
@@ -613,68 +616,78 @@ def create_prompt():
     try:
         data = request.get_json()
         if not data:
-            return jsonify({'error': '無效的請求數據'}), 400
+            return jsonify({'success': False, 'message': '無效的請求數據'}), 400
             
         # 驗證必要欄位
-        if not data.get('name') or not data.get('content'):
-            return jsonify({'error': '缺少必要欄位 (name 或 content)'}), 400
-            
+        required_fields = ['name', 'content', 'category', 'sort_order']
+        if not all(field in data for field in required_fields):
+            return jsonify({
+                'success': False, 
+                'message': f'缺少必要欄位: {", ".join(required_fields)}'
+            }), 400
+
         conn = sqlite3.connect('database.db')
         c = conn.cursor()
         
-        # 檢查表是否存在，如果不存在創建
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS prompts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                category TEXT NOT NULL,
-                content TEXT NOT NULL,
-                status INTEGER DEFAULT 1,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        # 插入新提示詞
-        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        c.execute('''
-            INSERT INTO prompts (name, category, content, status, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (
-            data['name'],
-            data.get('category', 'general'),
-            data['content'],
-            1,  # 默認啟用
-            current_time
-        ))
-        
-        conn.commit()
-        
-        # 獲取新插入的記錄
-        c.execute('''
-            SELECT id, name, category, content, status, created_at
-            FROM prompts WHERE id = last_insert_rowid()
-        ''')
-        
-        row = c.fetchone()
-        
-        if row:
-            return jsonify({
-                'success': True,
-                'message': '新增成功',
-                'data': {
-                    'id': row[0],
-                    'name': row[1],
-                    'category': row[2],
-                    'content': row[3],
-                    'status': row[4],
-                    'created_at': row[5]
-                }
-            })
-        
-        return jsonify({'error': '新增失敗'}), 500
-        
+        try:
+            # 檢查排序值是否重複
+            c.execute('SELECT 1 FROM prompts WHERE sort_order = ?', (data['sort_order'],))
+            if c.fetchone():
+                return jsonify({
+                    'success': False,
+                    'message': '此排序值已存在，請使用其他值'
+                }), 400
+            
+            # 檢查是否為第一筆資料
+            c.execute('SELECT COUNT(*) FROM prompts')
+            is_first_record = c.fetchone()[0] == 0
+                
+            # 插入新提示詞
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            c.execute('''
+                INSERT INTO prompts (name, category, content, sort_order, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                data['name'],
+                data['category'],
+                data['content'],
+                data['sort_order'],
+                1 if is_first_record else 0,  # 第一筆資料預設啟用，其他預設停用
+                current_time
+            ))
+            
+            conn.commit()
+            
+            # 獲取新插入的記錄
+            c.execute('''
+                SELECT id, name, category, content, sort_order, status, created_at
+                FROM prompts WHERE id = last_insert_rowid()
+            ''')
+            
+            row = c.fetchone()
+            
+            if row:
+                return jsonify({
+                    'success': True,
+                    'message': '新增成功',
+                    'data': {
+                        'id': row[0],
+                        'name': row[1],
+                        'category': row[2],
+                        'content': row[3],
+                        'sort_order': row[4],
+                        'status': row[5],
+                        'created_at': row[6]
+                    }
+                })
+            
+            return jsonify({'success': False, 'message': '新增失敗'}), 500
+            
+        except sqlite3.Error as e:
+            return jsonify({'success': False, 'message': f'資料庫錯誤: {str(e)}'}), 500
+            
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False, 'message': f'系統錯誤: {str(e)}'}), 500
     finally:
         if 'conn' in locals():
             conn.close()
@@ -713,26 +726,36 @@ def get_prompt(prompt_id):
 @app.route('/api/prompts/<int:prompt_id>', methods=['PUT'])
 def update_prompt(prompt_id):
     try:
-        data = request.json
-        conn = sqlite3.connect('prompts.db')
+        data = request.get_json()
+        conn = sqlite3.connect('database.db')
         c = conn.cursor()
+        
+        # 檢查排序值是否重複（排除當前記錄）
+        c.execute('SELECT 1 FROM prompts WHERE sort_order = ? AND id != ?', 
+                 (data['sort_order'], prompt_id))
+        if c.fetchone():
+            return jsonify({
+                'success': False,
+                'message': '此排序值已存在，請使用其他值'
+            }), 400
         
         c.execute('''
             UPDATE prompts 
-            SET name = ?, content = ?, category = ?
+            SET name = ?, content = ?, category = ?, sort_order = ?
             WHERE id = ?
-        ''', (data['name'], data['content'], data['category'], prompt_id))
+        ''', (data['name'], data['content'], data['category'], data['sort_order'], prompt_id))
         
         conn.commit()
-        conn.close()
         
         if c.rowcount == 0:
-            return jsonify({'error': 'Prompt not found'}), 404
+            return jsonify({'success': False, 'message': '提示詞不存在'}), 404
             
-        return jsonify({'message': 'Prompt updated successfully'})
+        return jsonify({'success': True, 'message': '更新成功'})
     except Exception as e:
-        app.logger.error(f"Error updating prompt: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 @app.route('/api/prompts/<int:prompt_id>', methods=['DELETE'])
 def delete_prompt(prompt_id):
@@ -1301,5 +1324,103 @@ def get_active_quick_questions():
         if 'conn' in locals():
             conn.close()
 
+@app.route('/api/prompts/max-sort-order', methods=['GET'])
+def get_max_sort_order():
+    try:
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        
+        # 使用 SQLite 直接查詢最大排序值
+        c.execute('SELECT MAX(sort_order) FROM prompts')
+        max_order = c.fetchone()[0]
+        
+        return jsonify({
+            'success': True,
+            'max_sort_order': max_order if max_order is not None else 0
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/prompts/check-sort-order', methods=['GET'])
+def check_prompt_sort_order():
+    try:
+        order = request.args.get('order', type=int)
+        exclude_id = request.args.get('exclude_id', type=int)
+        
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        
+        query = 'SELECT 1 FROM prompts WHERE sort_order = ?'
+        params = [order]
+        
+        if exclude_id:
+            query += ' AND id != ?'
+            params.append(exclude_id)
+        
+        c.execute(query, params)
+        exists = c.fetchone() is not None
+        
+        return jsonify({
+            'success': True,
+            'exists': exists
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/prompts/<int:prompt_id>/status', methods=['PUT'])
+def update_prompt_status(prompt_id):
+    try:
+        data = request.get_json()
+        new_status = data.get('status', False)
+        
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        
+        try:
+            if new_status:
+                # 如果要啟用，先將所有提示詞設為停用
+                c.execute('UPDATE prompts SET status = 0')
+            
+            # 更新指定提示詞的狀態
+            c.execute('UPDATE prompts SET status = ? WHERE id = ?', 
+                     (1 if new_status else 0, prompt_id))
+            
+            conn.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': '狀態更新成功'
+            })
+            
+        except sqlite3.Error as e:
+            return jsonify({
+                'success': False,
+                'message': f'資料庫錯誤: {str(e)}'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'系統錯誤: {str(e)}'
+        }), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 if __name__ == '__main__':
+    init_db()
+    init_prompt_db()
     app.run(debug=True)

@@ -26,13 +26,13 @@
                             <th><input type="checkbox" id="selectAllQuestions"></th>
                             <th>顯示文字</th>
                             <th>排序</th>
-                            <th>狀態</th>
+                            <th style="width: 120px;">狀態</th>
                             <th>建立時間</th>
                             <th>操作</th>
                         </tr>
                     </thead>
                     <tbody id="questionsList">
-                        
+                        <!-- 預設項目會由 JavaScript 動態生成 -->
                     </tbody>
                 </table>
             </div>
@@ -60,15 +60,15 @@
                         <tr>
                             <th><input type="checkbox" id="select-all"></th>
                             <th>顯示文字</th>
+                            <th>分類名稱</th>
                             <th>排序</th>
-                            <th>狀態</th>
+                            <th style="width: 120px;">狀態</th>
                             <th>建立時間</th>
                             <th>操作</th>
                         </tr>
                     </thead>
                     <tbody id="prompts-table-body">
-                        <!-- 當無數據時顯示 -->
-                        
+                        <!-- 內容將由 JavaScript 動態生成 -->
                     </tbody>
                 </table>
             </div>
@@ -133,8 +133,17 @@
                         </select>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">排序</label>
+                        <input type="number" class="form-control" id="promptOrder" min="1" value="1" required>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">提示詞內容</label>
-                        <textarea class="form-control" id="promptContent" rows="6" required></textarea>
+                        <div class="prompt-content-wrapper">
+                            <textarea class="form-control" id="promptContent" rows="6" required></textarea>
+                            <button type="button" class="btn btn-outline-secondary prompt-expand-btn" onclick="togglePromptContent()">
+                                <i class="fas fa-expand-alt"></i> 展開編輯
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>

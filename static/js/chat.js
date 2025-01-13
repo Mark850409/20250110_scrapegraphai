@@ -11,6 +11,7 @@ function toggleChat() {
         setTimeout(() => {
             chatContainer.style.opacity = '1';
             chatContainer.style.transform = 'translateY(0)';
+            updateScrollButtons();
         }, 10);
         chatIcon.classList.remove('fa-comments');
         chatIcon.classList.add('fa-times');
@@ -39,26 +40,102 @@ async function initializeQuickQuestions() {
     const quickQuestionsHeader = document.querySelector('.quick-questions-header');
     const quickQuestionsContent = document.querySelector('.quick-questions-content');
     const chevronIcon = quickQuestionsHeader.querySelector('i');
+    let isExpanded = true;  // 追蹤展開/折疊狀態
     
     // 設置初始狀態（展開）
-    quickQuestionsContent.style.maxHeight = quickQuestionsContent.scrollHeight + "px";
+    quickQuestionsContent.style.maxHeight = '200px';
     chevronIcon.style.transform = 'rotate(180deg)';
     
-    quickQuestionsHeader.addEventListener('click', function() {
-        const isExpanded = quickQuestionsContent.style.maxHeight !== '0px';
+    // 添加折疊/展開功能
+    quickQuestionsHeader.addEventListener('click', () => {
+        isExpanded = !isExpanded;
+        const wrapper = document.querySelector('.quick-questions-wrapper');
+        const scrollButtons = wrapper.querySelectorAll('.scroll-button');
         
         if (isExpanded) {
-            quickQuestionsContent.style.maxHeight = '0px';
-            chevronIcon.style.transform = 'rotate(0deg)';
-        } else {
-            quickQuestionsContent.style.maxHeight = quickQuestionsContent.scrollHeight + "px";
+            quickQuestionsContent.style.maxHeight = '50px';
+            quickQuestionsContent.classList.remove('collapsed');
+            wrapper.classList.remove('collapsed');
             chevronIcon.style.transform = 'rotate(180deg)';
+            // 展開時檢查是否需要顯示滾動按鈕
+            updateScrollButtons();
+        } else {
+            quickQuestionsContent.style.maxHeight = '0';
+            quickQuestionsContent.classList.add('collapsed');
+            wrapper.classList.add('collapsed');
+            chevronIcon.style.transform = 'rotate(0deg)';
+            // 摺疊時隱藏滾動按鈕
+            scrollButtons.forEach(button => {
+                button.style.display = 'none';
+            });
         }
     });
 
+    // 創建包裝容器
+    const wrapper = document.createElement('div');
+    wrapper.className = 'quick-questions-wrapper';
+    quickQuestionsContent.parentNode.insertBefore(wrapper, quickQuestionsContent);
+    wrapper.appendChild(quickQuestionsContent);
+    
+    // 創建左右滾動按鈕
+    const scrollLeftBtn = document.createElement('button');
+    scrollLeftBtn.className = 'scroll-button scroll-left';
+    scrollLeftBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+    
+    const scrollRightBtn = document.createElement('button');
+    scrollRightBtn.className = 'scroll-button scroll-right';
+    scrollRightBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+    
+    wrapper.insertBefore(scrollLeftBtn, quickQuestionsContent);
+    wrapper.appendChild(scrollRightBtn);
+    
+    // 更新滾動按鈕狀態的函數
+    function updateScrollButtons() {
+        if (!isExpanded) {
+            return; // 如果是摺疊狀態，直接返回
+        }
+        
+        const isAtStart = quickQuestionsContent.scrollLeft <= 0;
+        const isAtEnd = quickQuestionsContent.scrollLeft + quickQuestionsContent.clientWidth >= quickQuestionsContent.scrollWidth;
+        const needsScroll = quickQuestionsContent.scrollWidth > quickQuestionsContent.clientWidth;
+        
+        scrollLeftBtn.style.display = needsScroll ? 'flex' : 'none';
+        scrollRightBtn.style.display = needsScroll ? 'flex' : 'none';
+        scrollLeftBtn.classList.toggle('disabled', isAtStart);
+        scrollRightBtn.classList.toggle('disabled', isAtEnd);
+    }
+    
+    // 添加滾動按鈕事件監聽
+    scrollLeftBtn.addEventListener('click', () => {
+        quickQuestionsContent.scrollBy({ left: -200, behavior: 'smooth' });
+    });
+    
+    scrollRightBtn.addEventListener('click', () => {
+        quickQuestionsContent.scrollBy({ left: 200, behavior: 'smooth' });
+    });
+    
+    // 監聽滾動事件
+    quickQuestionsContent.addEventListener('scroll', updateScrollButtons);
+    
+    // 監聽視窗大小變化
+    window.addEventListener('resize', updateScrollButtons);
+    
     // 載入初始快速問題
     await updateAIAssistantQuestions();
+    
+    // 初始化按鈕狀態
+    updateScrollButtons();
+    
+    // 將 updateScrollButtons 函數添加到全局範圍
+    window.updateScrollButtons = updateScrollButtons;
 }
+
+// 定義問題對應的實際文字
+const QUESTION_MAPPINGS = {
+    '常見問題': '如何串接LLM?',
+    '爬蟲問題': '如何使用AI爬蟲?',
+    '提示詞問題': '如何撰寫好的提示詞?'
+};
 
 // 修改 updateAIAssistantQuestions 函數
 async function updateAIAssistantQuestions() {
@@ -67,8 +144,6 @@ async function updateAIAssistantQuestions() {
         if (!response.ok) throw new Error('Failed to fetch quick questions');
         
         const questions = await response.json();
-        
-        // 更新 AI 小助手的快速提問選單
         const quickQuestionsContent = document.querySelector('.quick-questions-content');
         if (!quickQuestionsContent) return;
 
@@ -80,13 +155,21 @@ async function updateAIAssistantQuestions() {
             const button = document.createElement('button');
             button.className = 'quick-question-btn';
             button.textContent = question.display_text;
-            button.onclick = () => sendQuickQuestion(question.display_text);
+            // 修改點擊事件處理
+            button.onclick = () => {
+                const mappedText = QUESTION_MAPPINGS[question.display_text] || question.display_text;
+                const input = document.querySelector('.chat-input');
+                if (input) {
+                    input.value = mappedText;
+                    input.focus();
+                }
+            };
             quickQuestionsContent.appendChild(button);
         });
 
-        // 更新選單高度
-        if (quickQuestionsContent.style.maxHeight !== '0px') {
-            quickQuestionsContent.style.maxHeight = quickQuestionsContent.scrollHeight + "px";
+        // 確保在內容更新後更新滾動按鈕狀態
+        if (window.updateScrollButtons) {
+            setTimeout(window.updateScrollButtons, 100);
         }
     } catch (error) {
         console.error('Error updating AI assistant questions:', error);
@@ -123,18 +206,25 @@ function handleKeyPress(event) {
     }
 }
 
-function sendQuickQuestion(question) {
-    if (!question) return;
-    addMessage('user', question);
-    sendToServer(question);
-}
-
-// 添加思考中的動畫
+// 修改添加思考中訊息的函數
 function addThinkingMessage() {
     const messagesContainer = document.getElementById('chatMessages');
     const thinkingDiv = document.createElement('div');
-    thinkingDiv.className = 'message bot thinking';
-    thinkingDiv.innerHTML = '<div class="thinking-dots"><span>.</span><span>.</span><span>.</span></div>';
+    thinkingDiv.className = 'message thinking';
+    
+    // 添加 AI 頭像
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.innerHTML = '<i class="fas fa-robot"></i>';
+    
+    // 添加動畫點點
+    const dots = document.createElement('div');
+    dots.className = 'thinking-dots';
+    dots.innerHTML = '<span></span><span></span><span></span>';
+    
+    thinkingDiv.appendChild(avatar);
+    thinkingDiv.appendChild(dots);
+    
     messagesContainer.appendChild(thinkingDiv);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
     return thinkingDiv;
