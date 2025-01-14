@@ -1,5 +1,11 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+<!-- 添加 highlight.js 的 CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/default.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/script_creator.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <h2>腳本生成</h2>
@@ -23,10 +29,37 @@
                         <label class="btn btn-outline-primary" for="ollama2">Ollama</label>
                     </div>
                 </div>
+
+                <!-- Ollama 伺服器設定區塊 -->
+                <div id="ollamaServerSection" style="display: none;">
+                    <div class="mb-4">
+                        <label class="form-label">Ollama 伺服器網址</label>
+                        <div class="input-group">
+                            <input type="text" id="ollamaServerUrl" class="form-control" 
+                                   placeholder="例如: http://localhost:11434" 
+                                   value="http://localhost:11434">
+                            <button class="btn btn-primary" type="button" id="testOllamaConnection">
+                                <i class="fas fa-plug me-1"></i>測試連線
+                            </button>
+                        </div>
+                        <div class="form-text">請輸入 Ollama 伺服器的完整網址</div>
+                    </div>
+
+                    <!-- Ollama 模型選擇區塊 -->
+                    <div id="ollamaModelSection" class="mb-4" style="display: none;">
+                        <label class="form-label">選擇模型</label>
+                        <select class="form-select" id="ollamaModel">
+                            <option value="" selected disabled>請選擇模型</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 原有的模型選擇下拉選單 -->
                 <div class="mb-3">
                     <label class="form-label">選擇模型</label>
                     <select class="form-select" name="model-name" required></select>
                 </div>
+
                 <div class="mb-3">
                     <label class="form-label">網址</label>
                     <input type="url" class="form-control" name="url" required>
@@ -45,24 +78,14 @@
                 </div>
                 <button type="submit" class="btn btn-primary">生成腳本</button>
             </form>
-            <div class="mt-3" id="script-gen-result" style="display: none;">
-                <h6>生成的腳本</h6>
-                <div class="alert alert-info">
-                    <strong>執行時間：</strong> <span class="duration"></span> 秒
-                </div>
-                <pre><code class="python"></code></pre>
-                <button class="btn btn-primary copy-btn">
-                    <i class="fas fa-copy"></i> 複製腳本
-                </button>
-                <button class="btn btn-success execute-btn">
-                    <i class="fas fa-play"></i> 執行腳本
-                </button>
-            </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<!-- 添加 highlight.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
 <script src="{{ url_for('static', filename='js/script_creator.js') }}"></script>
-{% endblock %} 
+{% endblock %}

@@ -27,18 +27,24 @@
         color: #0d6efd;
         font-weight: bold;
     }
-    .download-template {
-        padding: 1rem;
-        border: 1px solid #dee2e6;
-        border-radius: 0.5rem;
-        margin: 1rem 0;
-        background-color: #f8f9fa;
-        transition: all 0.3s ease;
+    .feature-section {
+        padding: 2rem;
+        margin-bottom: 2rem;
+        border-radius: 8px;
+        background-color: #fff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .download-template:hover {
+    .step-guide {
+        padding: 1rem;
+        margin: 1rem 0;
+        border-left: 3px solid #0d6efd;
+        background-color: #f8f9fa;
+    }
+    .tips-box {
         background-color: #e9ecef;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
     }
 </style>
 {% endblock %}
@@ -46,242 +52,208 @@
 {% block content %}
 <div class="container my-5">
     <div class="row">
-        <!-- Side Navigation -->
+        <!-- 側邊導航 -->
         <div class="col-lg-3">
             <div class="section-nav">
-                <h5 class="mb-3">目錄</h5>
+                <h5 class="mb-3">功能導覽</h5>
                 <nav class="nav flex-column">
-                    <a class="nav-link active" href="#basic-usage">基本使用說明</a>
-                    <a class="nav-link" href="#prompt-tutorial">提示詞生成教學</a>
-                    <a class="nav-link" href="#prompt-templates">提示詞範本下載</a>
-                    <a class="nav-link" href="#faq">常見問題</a>
+                    <a class="nav-link" href="#scraping-tools">爬蟲工具</a>
+                    <a class="nav-link" href="#script-creator">腳本生成</a>
+                    <a class="nav-link" href="#smart-scraper">智能爬蟲</a>
+                    <a class="nav-link" href="#script-executor">執行腳本</a>
+                    <a class="nav-link" href="#script-records">腳本生成紀錄</a>
+                    <a class="nav-link" href="#ai-service">智能客服工具</a>
+                    <a class="nav-link" href="#prompt-management">自定義提示詞</a>
                 </nav>
             </div>
         </div>
 
-        <!-- Main Content -->
+        <!-- 主要內容 -->
         <div class="col-lg-9">
-            <!-- 基本使用說明 -->
-            <section id="basic-usage" class="mb-5">
-                <h2 class="mb-4">基本使用說明</h2>
-                <div class="accordion" id="basicUsageAccordion">
-                    <div class="accordion-item">
-                        <h3 class="accordion-header">
-                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#basicQ1">
-                                如何開始使用AI大語言模型爬蟲工具？
-                            </button>
-                        </h3>
-                        <div id="basicQ1" class="accordion-collapse collapse show">
-                            <div class="accordion-body">
-                                <p>使用步驟如下：</p>
-                                <ol>
-                                    <li>在首頁輸入您要爬取的網址</li>
-                                    <li>選擇適合的提示詞模板或自行輸入提示詞</li>
-                                    <li>點擊「開始爬取」按鈕</li>
-                                    <li>等待系統處理完成後，即可查看結果</li>
-                                </ol>
-                                <img src="/static/images/basic-usage.png" alt="基本使用步驟" class="qa-image">
+            <!-- 爬蟲工具總覽 -->
+            <section id="scraping-tools" class="feature-section">
+                <h2 class="mb-4">爬蟲工具功能總覽</h2>
+                <p>我們的爬蟲工具提供多種功能，幫助您輕鬆完成網路資料收集工作：</p>
+                <div class="row g-4 mb-4">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5><i class="fas fa-code me-2"></i>腳本生成</h5>
+                                <p>AI 智能生成 Python 爬蟲腳本，無需編程經驗。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5><i class="fas fa-robot me-2"></i>智能爬蟲</h5>
+                                <p>自動分析網頁結構，即時爬取所需資料。</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- 提示詞生成教學 -->
-            <section id="prompt-tutorial" class="mb-5">
-                <h2 class="mb-4">提示詞生成教學</h2>
-                <div class="accordion" id="promptTutorialAccordion">
-                    <div class="accordion-item">
-                        <h3 class="accordion-header">
-                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#promptQ1">
-                                什麼是好的提示詞？
-                            </button>
-                        </h3>
-                        <div id="promptQ1" class="accordion-collapse collapse show">
-                            <div class="accordion-body">
-                                <p>一個好的提示詞應該包含以下要素：</p>
-                                <ul>
-                                    <li>明確的目標和要求</li>
-                                    <li>具體的輸出格式指示</li>
-                                    <li>清晰的上下文信息</li>
-                                </ul>
-                                <img src="/static/images/prompt-example.png" alt="提示詞示例" class="qa-image">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="accordion-item">
-                        <h3 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#promptQ2">
-                                如何優化提示詞以獲得更好的結果？
-                            </button>
-                        </h3>
-                        <div id="promptQ2" class="accordion-collapse collapse">
-                            <div class="accordion-body">
-                                <p>優化提示詞的技巧：</p>
-                                <ul>
-                                    <li>使用具體的動詞和描述性語言</li>
-                                    <li>設定明確的輸出格式要求</li>
-                                    <li>提供相關的示例</li>
-                                    <li>適當使用溫度和其他參數設置</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
+            <!-- 腳本生成 -->
+            <section id="script-creator" class="feature-section">
+                <h2 class="mb-4">腳本生成功能說明</h2>
+                <div class="step-guide">
+                    <h4>使用步驟：</h4>
+                    <ol>
+                        <li>輸入目標網站 URL</li>
+                        <li>描述需要爬取的資料類型</li>
+                        <li>選擇適合的提示詞模板</li>
+                        <li>點擊生成按鈕</li>
+                        <li>檢視並下載生成的腳本</li>
+                    </ol>
+                </div>
+                <div class="tips-box">
+                    <h5><i class="fas fa-lightbulb me-2"></i>使用技巧</h5>
+                    <ul>
+                        <li>提供詳細的資料需求描述，可提高腳本準確性</li>
+                        <li>可以參考提示詞範本來優化您的需求描述</li>
+                        <li>生成後可以預覽腳本並進行必要的調整</li>
+                    </ul>
                 </div>
             </section>
 
-            <!-- 提示詞範本下載 -->
-            <section id="prompt-templates" class="mb-5">
-                <h2 class="mb-4">提示詞範本下載</h2>
-                <div class="row g-4">
-                    <!-- 電商平台提示詞範本 -->
-                    <div class="col-md-6">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h5 class="card-title">電商平台提示詞範本</h5>
-                                <p class="card-text">專門針對電商平台優化的提示詞，包含：</p>
-                                <ul class="list-unstyled mb-4">
-                                    <li><i class="fas fa-check text-success me-2"></i>商品資訊爬取</li>
-                                    <li><i class="fas fa-check text-success me-2"></i>價格監控</li>
-                                    <li><i class="fas fa-check text-success me-2"></i>評價分析</li>
-                                    <li><i class="fas fa-check text-success me-2"></i>銷售數據收集</li>
-                                </ul>
-                                <a href="{{ url_for('static', filename='templates/ecommerce_prompt.txt') }}" class="btn btn-primary" download>下載範本</a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 新聞網站提示詞範本 -->
-                    <div class="col-md-6">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h5 class="card-title">新聞網站提示詞範本</h5>
-                                <p class="card-text">針對新聞網站內容擷取優化的提示詞，包含：</p>
-                                <ul class="list-unstyled mb-4">
-                                    <li><i class="fas fa-check text-success me-2"></i>新聞標題與內文</li>
-                                    <li><i class="fas fa-check text-success me-2"></i>發布時間與作者</li>
-                                    <li><i class="fas fa-check text-success me-2"></i>相關標籤</li>
-                                    <li><i class="fas fa-check text-success me-2"></i>讀者回應</li>
-                                </ul>
-                                <a href="{{ url_for('static', filename='templates/news_prompt.txt') }}" class="btn btn-primary" download>下載範本</a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 社交媒體提示詞範本 -->
-                    <div class="col-md-6">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h5 class="card-title">社交媒體提示詞範本</h5>
-                                <p class="card-text">專門針對社交平台優化的提示詞，包含：</p>
-                                <ul class="list-unstyled mb-4">
-                                    <li><i class="fas fa-check text-success me-2"></i>貼文內容收集</li>
-                                    <li><i class="fas fa-check text-success me-2"></i>互動數據分析</li>
-                                    <li><i class="fas fa-check text-success me-2"></i>用戶評論擷取</li>
-                                    <li><i class="fas fa-check text-success me-2"></i>話題趨勢追蹤</li>
-                                </ul>
-                                <a href="{{ url_for('static', filename='templates/social_media_prompt.txt') }}" class="btn btn-primary" download>下載範本</a>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 論壇提示詞範本 -->
-                    <div class="col-md-6">
-                        <div class="card h-100">
-                            <div class="card-body">
-                                <h5 class="card-title">論壇提示詞範本</h5>
-                                <p class="card-text">針對論壇討論內容優化的提示詞，包含：</p>
-                                <ul class="list-unstyled mb-4">
-                                    <li><i class="fas fa-check text-success me-2"></i>討論串內容</li>
-                                    <li><i class="fas fa-check text-success me-2"></i>回覆內容收集</li>
-                                    <li><i class="fas fa-check text-success me-2"></i>用戶互動分析</li>
-                                    <li><i class="fas fa-check text-success me-2"></i>熱門話題追蹤</li>
-                                </ul>
-                                <a href="{{ url_for('static', filename='templates/forum_prompt.txt') }}" class="btn btn-primary" download>下載範本</a>
-                            </div>
-                        </div>
-                    </div>
+            <!-- 智能爬蟲 -->
+            <section id="smart-scraper" class="feature-section">
+                <h2 class="mb-4">智能爬蟲功能說明</h2>
+                <div class="step-guide">
+                    <h4>使用步驟：</h4>
+                    <ol>
+                        <li>輸入目標網站 URL</li>
+                        <li>選擇要爬取的資料類型</li>
+                        <li>設定爬取參數（可選）</li>
+                        <li>開始智能爬取</li>
+                        <li>查看即時爬取結果</li>
+                    </ol>
+                </div>
+                <div class="tips-box">
+                    <h5><i class="fas fa-lightbulb me-2"></i>功能特點</h5>
+                    <ul>
+                        <li>自動分析網頁結構，識別關鍵資訊</li>
+                        <li>支援動態加載內容的網頁</li>
+                        <li>可設定爬取頻率和範圍</li>
+                        <li>提供多種資料導出格式</li>
+                    </ul>
                 </div>
             </section>
 
-            <!-- 常見問題 -->
-            <section id="faq" class="mb-5">
-                <h2 class="mb-4">常見問題</h2>
-                <div class="accordion" id="faqAccordion">
-                    <div class="accordion-item">
-                        <h3 class="accordion-header">
-                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faqQ1">
-                                AI大語言模型爬蟲工具支援哪些網站？
-                            </button>
-                        </h3>
-                        <div id="faqQ1" class="accordion-collapse collapse show">
-                            <div class="accordion-body">
-                                <p>本工具支援大多數常見的網站類型，包括：</p>
-                                <ul>
-                                    <li>新聞網站</li>
-                                    <li>電商平台</li>
-                                    <li>部落格</li>
-                                    <li>企業網站</li>
-                                </ul>
-                                <p>注意：部分需要登入或有特殊反爬蟲機制的網站可能無法正常爬取。</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="accordion-item">
-                        <h3 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqQ2">
-                                爬取速度受哪些因素影響？
-                            </button>
-                        </h3>
-                        <div id="faqQ2" class="accordion-collapse collapse">
-                            <div class="accordion-body">
-                                <ul>
-                                    <li>網站的響應速度</li>
-                                    <li>提示詞的複雜度</li>
-                                    <li>需要處理的數據量</li>
-                                    <li>系統當前的負載情況</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="accordion-item">
-                        <h3 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqQ3">
-                                如何處理爬取失敗的情況？
-                            </button>
-                        </h3>
-                        <div id="faqQ3" class="accordion-collapse collapse">
-                            <div class="accordion-body">
-                                <p>當爬取失敗時，您可以：</p>
-                                <ol>
-                                    <li>檢查網址是否正確</li>
-                                    <li>確認網站是否可以正常訪問</li>
-                                    <li>調整提示詞的複雜度</li>
-                                    <li>稍後重試</li>
-                                </ol>
-                                <p>如果問題持續存在，請聯繫技術支援。</p>
-                            </div>
-                        </div>
-                    </div>
+            <!-- 執行腳本 -->
+            <section id="script-executor" class="feature-section">
+                <h2 class="mb-4">執行腳本功能說明</h2>
+                <div class="step-guide">
+                    <h4>使用步驟：</h4>
+                    <ol>
+                        <li>選擇要執行的爬蟲腳本</li>
+                        <li>設定執行參數</li>
+                        <li>啟動腳本執行</li>
+                        <li>監控執行進度</li>
+                        <li>查看執行結果和日誌</li>
+                    </ol>
+                </div>
+                <div class="tips-box">
+                    <h5><i class="fas fa-lightbulb me-2"></i>注意事項</h5>
+                    <ul>
+                        <li>執行前請確認參數設置正確</li>
+                        <li>可以設定執行頻率和時間</li>
+                        <li>支援批次處理多個腳本</li>
+                        <li>提供執行日誌和錯誤提示</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 腳本生成紀錄 -->
+            <section id="script-records" class="feature-section">
+                <h2 class="mb-4">腳本生成紀錄功能說明</h2>
+                <div class="step-guide">
+                    <h4>主要功能：</h4>
+                    <ul>
+                        <li>查看歷史生成的腳本</li>
+                        <li>編輯和更新已有腳本</li>
+                        <li>複製和重用成功的腳本</li>
+                        <li>管理和刪除腳本記錄</li>
+                    </ul>
+                </div>
+                <div class="tips-box">
+                    <h5><i class="fas fa-lightbulb me-2"></i>管理建議</h5>
+                    <ul>
+                        <li>定期整理不需要的腳本記錄</li>
+                        <li>為重要腳本添加標記和說明</li>
+                        <li>可以匯出腳本備份</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 智能客服工具 -->
+            <section id="ai-service" class="feature-section">
+                <h2 class="mb-4">智能客服工具功能說明</h2>
+                <div class="step-guide">
+                    <h4>功能特點：</h4>
+                    <ul>
+                        <li>智能回答使用者問題</li>
+                        <li>提供技術支援和指導</li>
+                        <li>自動學習和優化回答</li>
+                        <li>支援多種互動方式</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- 自定義提示詞 -->
+            <section id="prompt-management" class="feature-section">
+                <h2 class="mb-4">自定義提示詞功能說明</h2>
+                <div class="step-guide">
+                    <h4>使用步驟：</h4>
+                    <ol>
+                        <li>選擇或創建提示詞模板</li>
+                        <li>自定義提示詞內容</li>
+                        <li>測試提示詞效果</li>
+                        <li>保存和管理提示詞</li>
+                    </ol>
+                </div>
+                <div class="tips-box">
+                    <h5><i class="fas fa-lightbulb me-2"></i>優化建議</h5>
+                    <ul>
+                        <li>使用清晰具體的描述</li>
+                        <li>包含必要的格式要求</li>
+                        <li>添加示例和上下文</li>
+                        <li>定期更新和優化提示詞</li>
+                    </ul>
                 </div>
             </section>
         </div>
-
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // 側邊導航欄的 active 狀態
-    const navLinks = document.querySelectorAll('.section-nav .nav-link');
-    navLinks.forEach(link => {
-        link.addEventListener('click', function() {
-            navLinks.forEach(l => l.classList.remove('active'));
-            this.classList.add('active');
-        });
+    // 滾動監聽，更新側邊導航激活狀態
+    document.addEventListener('DOMContentLoaded', function() {
+        const sections = document.querySelectorAll('section[id]');
+        const navLinks = document.querySelectorAll('.section-nav .nav-link');
+
+        function updateNavigation() {
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                const scrollPosition = window.scrollY;
+
+                if (scrollPosition >= sectionTop - 100 && scrollPosition < sectionTop + sectionHeight - 100) {
+                    navLinks.forEach(link => {
+                        link.classList.remove('active');
+                        if (link.getAttribute('href') === '#' + section.getAttribute('id')) {
+                            link.classList.add('active');
+                        }
+                    });
+                }
+            });
+        }
+
+        window.addEventListener('scroll', updateNavigation);
+        updateNavigation();
     });
-});
 </script>
 {% endblock %}

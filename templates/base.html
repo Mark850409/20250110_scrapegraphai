@@ -4,12 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}AI大語言模型爬蟲工具{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <link href="{{ url_for('static', filename='css/chat.css') }}" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/chat.css') }}" rel="stylesheet">
     <style>
         .navbar {
             padding: 1rem 0;
@@ -107,7 +106,7 @@
 
         .content-wrapper {
             flex: 1 0 auto;
-            padding-bottom: 3rem; /* 給 footer 留出空間 */
+            padding-bottom: 3rem;
         }
 
         .footer {
@@ -117,6 +116,38 @@
             padding: 3rem 0;
             width: 100%;
         }
+
+        /* 麵包屑導航樣式 */
+        .breadcrumb {
+            background: transparent;
+            margin-bottom: 0;
+            padding: 0.75rem 0;
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb-item a {
+            color: #6c757d;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .breadcrumb-item a:hover {
+            color: #3498db;
+        }
+
+        .breadcrumb-item.active {
+            color: #3498db;
+        }
+
+        .breadcrumb-item + .breadcrumb-item::before {
+            content: "›";
+            color: #6c757d;
+        }
+
+        .breadcrumb-wrapper {
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -124,28 +155,116 @@
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container">
-            <a class="navbar-brand" href="/">AI大語言模型爬蟲工具</a>
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <i class="fas fa-robot text-primary me-2"></i>
+                AI大語言模型爬蟲工具
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('learning_center') }}">學習中心</a>
+                        <a class="nav-link" href="{{ url_for('index') }}">
+                            <i class="fas fa-home me-2"></i>首頁
+                        </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('prompt_management') }}">自定義提示詞</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="scrapingToolsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-spider me-2"></i>爬蟲工具
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="scrapingToolsDropdown">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('script_creator') }}">
+                                    <i class="fas fa-code me-2"></i>腳本生成
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('smart_scraper') }}">
+                                    <i class="fas fa-robot me-2"></i>智能爬蟲
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('script_executor') }}">
+                                    <i class="fas fa-play me-2"></i>執行腳本
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('script_records') }}">
+                                    <i class="fas fa-history me-2"></i>腳本生成紀錄
+                                </a>
+                            </li>
+                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('pricing') }}">定價</a>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="aiToolsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-robot me-2"></i>智能客服工具
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="aiToolsDropdown">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('prompt_management') }}">
+                                    <i class="fas fa-comment-alt me-2"></i>自定義提示詞
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="aboutUsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-info-circle me-2"></i>關於我們
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="aboutUsDropdown">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('learning_center') }}">
+                                    <i class="fas fa-graduation-cap me-2"></i>學習中心
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('pricing') }}">
+                                    <i class="fas fa-tag me-2"></i>定價
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
 
+    <!-- 麵包屑導航 -->
+    {% if request.endpoint != 'index' %}
+    <div class="breadcrumb-wrapper">
+        <div class="container">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb py-2 mb-0">
+                    <li class="breadcrumb-item">
+                        <a href="{{ url_for('index') }}">
+                            <i class="fas fa-home me-1"></i>首頁
+                        </a>
+                    </li>
+                    {% if breadcrumb_title %}
+                        <li class="breadcrumb-item active" aria-current="page">{{ breadcrumb_title }}</li>
+                    {% endif %}
+                </ol>
+            </nav>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- 添加 content-wrapper div -->
     <div class="content-wrapper">
+        {% if alert and request.endpoint not in ['index', 'learning_center'] %}
+            <div class="container mt-3">
+                <div class="alert alert-{{ alert.type }}" role="alert">
+                    <div class="d-flex align-items-center">
+                        <i class="{{ alert.icon }} me-2"></i>
+                        <div>
+                            <strong>{{ alert.title }}</strong>
+                            <p class="mb-0">{{ alert.message }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
         {% block content %}{% endblock %}
     </div>
 
@@ -182,8 +301,25 @@
 
     <!-- 先引入必要的依賴 -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Highlight.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+    <script>
+        // 初始化 highlight.js
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof hljs !== 'undefined') {
+                hljs.configure({
+                    languages: ['python']
+                });
+                hljs.highlightAll();
+            } else {
+                console.warn('Highlight.js is not loaded');
+            }
+        });
+    </script>
     <!-- 再引入自定義的 JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
@@ -234,10 +370,6 @@
             </div>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
     {% block extra_js %}{% endblock %}
 
 </body>

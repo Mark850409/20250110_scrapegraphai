@@ -2,313 +2,7 @@
 
 {% block title %}腳本生成紀錄 - AI大語言模型爬蟲工具{% endblock %}
 
-{% block content %}
-<div class="container my-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>腳本生成紀錄</h2>
-        <button id="clearRecordsBtn" class="btn btn-danger" style="display: none;">
-            <i class="fas fa-trash-alt me-2"></i>清除所有紀錄
-        </button>
-    </div>
-
-    <!-- 說明卡片 -->
-    <div class="card mb-4 bg-light">
-        <div class="card-body">
-            <h5 class="card-title"><i class="fas fa-info-circle me-2"></i>關於腳本生成紀錄</h5>
-            <p class="card-text mb-0">
-                在這裡，您可以查看所有已生成的爬蟲腳本紀錄。每個紀錄包含：
-            </p>
-            <ul class="mb-0 mt-2">
-                <li>生成時間 - 腳本產生的確切時間</li>
-                <li>目標網址 - 爬蟲的目標網站</li>
-                <li>使用的提示詞 - 用於生成腳本的提示</li>
-                <li>處理時間 - 腳本生成所需時間</li>
-            </ul>
-        </div>
-    </div>
-    
-    <!-- 無紀錄時的提示 -->
-    <div id="noRecordsMsg" class="text-center py-5" style="display: none;">
-        <div class="empty-state">
-            <i class="fas fa-clipboard-list fa-4x mb-3 text-muted"></i>
-            <h4 class="text-muted">目前沒有腳本生成紀錄</h4>
-            <p class="text-muted mb-4">當您生成新的爬蟲腳本時，紀錄將會顯示在這裡</p>
-            <a href="/script-generation" class="btn btn-primary">
-                <i class="fas fa-plus me-2"></i>生成新腳本
-            </a>
-        </div>
-    </div>
-
-    <!-- 紀錄表格 -->
-    <div id="recordsTable" class="card" style="display: none;">
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="px-4">生成時間</th>
-                            <th>網址</th>
-                            <th>提示詞</th>
-                            <th class="text-center">耗時</th>
-                            <th class="text-center">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="recordsList">
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 載入中提示 -->
-<div id="loadingIndicator" class="text-center py-5" style="display: none;">
-    <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">載入中...</span>
-    </div>
-    <p class="mt-2 text-muted">載入紀錄中...</p>
-</div>
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    loadRecords();
-
-    document.getElementById('clearRecordsBtn').addEventListener('click', function() {
-        Swal.fire({
-            title: '確定要清除所有紀錄？',
-            text: "此操作無法復原！",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: '是的，清除',
-            cancelButtonText: '取消'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                clearRecords();
-            }
-        });
-    });
-});
-
-function loadRecords() {
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    const noRecordsMsg = document.getElementById('noRecordsMsg');
-    const recordsTable = document.getElementById('recordsTable');
-    const clearBtn = document.getElementById('clearRecordsBtn');
-
-    // 顯示載入中提示
-    loadingIndicator.style.display = 'block';
-    noRecordsMsg.style.display = 'none';
-    recordsTable.style.display = 'none';
-    clearBtn.style.display = 'none';
-
-    fetch('/api/script-records')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            loadingIndicator.style.display = 'none';
-            
-            if (!data.records || data.records.length === 0) {
-                noRecordsMsg.style.display = 'block';
-                recordsTable.style.display = 'none';
-                clearBtn.style.display = 'none';
-                return;
-            }
-
-            noRecordsMsg.style.display = 'none';
-            recordsTable.style.display = 'block';
-            clearBtn.style.display = 'block';
-            
-            const tableBody = document.getElementById('recordsList');
-            tableBody.innerHTML = data.records.map(record => {
-                // 解码脚本内容
-                const decodedScript = decodeURIComponent(record.script);
-                return `
-                    <tr>
-                        <td class="px-4">${formatDate(record.timestamp)}</td>
-                        <td class="text-truncate" style="max-width: 200px;">
-                            <a href="${record.url}" target="_blank" title="${record.url}">
-                                ${record.url}
-                            </a>
-                        </td>
-                        <td class="text-truncate" style="max-width: 200px;" title="${record.prompt}">
-                            ${record.prompt}
-                        </td>
-                        <td class="text-center">${record.duration}秒</td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-primary" onclick="viewScript({ 
-                                timestamp: '${record.timestamp}', 
-                                url: '${record.url}', 
-                                prompt: '${record.prompt}', 
-                                duration: '${record.duration}', 
-                                script: '${encodeURIComponent(decodedScript)}' 
-                            })">
-                                <i class="fas fa-code me-1"></i>查看腳本
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            loadingIndicator.style.display = 'none';
-            noRecordsMsg.style.display = 'block';
-            recordsTable.style.display = 'none';
-            clearBtn.style.display = 'none';
-            
-            Swal.fire({
-                title: '錯誤',
-                text: '載入記錄時發生錯誤',
-                icon: 'error',
-                confirmButtonText: '確定'
-            });
-        });
-}
-
-// 更新格式化日期函数以确保一致性
-function formatDate(timestamp) {
-    if (!timestamp) return '未提供';
-    try {
-        const date = new Date(timestamp);
-        if (isNaN(date.getTime())) return timestamp; // 如果转换失败，返回原始值
-        
-        return date.toLocaleString('zh-TW', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-        });
-    } catch (e) {
-        console.error('Date formatting error:', e);
-        return timestamp;
-    }
-}
-
-function clearRecords() {
-    fetch('/api/script-records', {
-        method: 'DELETE'
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('清除記錄失敗');
-        }
-        return response.json();
-    })
-    .then(data => {
-        loadRecords();
-        Swal.fire({
-            title: '已清除',
-            text: data.message || '所有記錄已成功清除',
-            icon: 'success',
-            confirmButtonText: '確定'
-        });
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        Swal.fire({
-            title: '錯誤',
-            text: '清除記錄時發生錯誤',
-            icon: 'error',
-            confirmButtonText: '確定'
-        });
-    });
-}
-
-function viewScript(record) {
-    // 对脚本内容进行解码，以便在 HTML 中显示原始内容
-    const decodedScript = decodeURIComponent(record.script);
-    
-    // 使用 SweetAlert 显示脚本内容
-    Swal.fire({
-        title: '腳本內容', // 弹窗标题
-        html: `
-            <div class="accordion" id="scriptAccordion">
-                <!-- 折叠菜单：脚本相关信息 -->
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="headingInfo">
-                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseInfo" aria-expanded="true" aria-controls="collapseInfo">
-                            腳本相關資訊
-                        </button>
-                    </h2>
-                    <div id="collapseInfo" class="accordion-collapse collapse show" aria-labelledby="headingInfo" data-bs-parent="#scriptAccordion">
-                        <div class="accordion-body">
-                            <p><strong>生成時間:</strong> ${record.timestamp || '未提供'}</p>
-                            <p><strong>網址:</strong> <a href="${record.url || '#'}" target="_blank">${record.url || '未提供'}</a></p>
-                            <p><strong>提示詞:</strong> ${record.prompt || '未提供'}</p>
-                            <p><strong>耗時:</strong> ${record.duration || '未提供'}秒</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 折叠菜单：脚本代码 -->
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="headingCode">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCode" aria-expanded="false" aria-controls="collapseCode">
-                            腳本程式碼
-                        </button>
-                    </h2>
-                    <div id="collapseCode" class="accordion-collapse collapse" aria-labelledby="headingCode" data-bs-parent="#scriptAccordion">
-                        <div class="accordion-body">
-                            <button class="btn btn-sm btn-outline-primary mb-2" onclick="copyScript('${encodeURIComponent(decodedScript)}')">
-                                <i class="fas fa-copy"></i> 複製程式碼
-                            </button>
-                            <pre class="text-start" style="background-color: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; border-radius: 5px;">
-                                <code class="language-python">${decodedScript}</code>
-                            </pre>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `,
-        width: '80%', // 弹窗宽度
-        confirmButtonText: '關閉', // 确认按钮文本
-        showCloseButton: true, // 显示关闭按钮
-        customClass: {
-            popup: 'swal-wide', // 自定义弹窗样式
-            content: 'text-start' // 内容左对齐
-        },
-        didOpen: () => {
-            // 在弹窗打开后高亮代码
-            document.querySelectorAll('pre code').forEach((block) => {
-                hljs.highlightElement(block);
-            });
-        }
-    });
-}
-
-function copyScript(script) {
-    navigator.clipboard.writeText(decodeURIComponent(script)).then(() => {
-        const copyBtn = document.querySelector('.swal2-container .btn-outline-primary');
-        copyBtn.innerHTML = '<i class="fas fa-check"></i> 已複製';
-        copyBtn.classList.remove('btn-outline-primary');
-        copyBtn.classList.add('btn-success');
-        setTimeout(() => {
-            copyBtn.innerHTML = '<i class="fas fa-copy"></i> 複製程式碼';
-            copyBtn.classList.remove('btn-success');
-            copyBtn.classList.add('btn-outline-primary');
-        }, 2000);
-    }).catch(err => {
-        console.error('複製失敗:', err);
-        Swal.fire({
-            title: '複製失敗',
-            text: '請手動複製程式碼',
-            icon: 'error',
-            confirmButtonText: '確定'
-        });
-    });
-}
-</script>
-
+{% block extra_css %}
 <style>
 .empty-state {
     padding: 2rem;
@@ -332,6 +26,598 @@ function copyScript(script) {
     width: 3rem;
     height: 3rem;
 }
+
+.swal2-popup {
+    padding: 1.5rem !important;
+}
+
+.swal2-html-container {
+    margin: 0 !important;
+}
+
+pre {
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    margin: 0;
+}
+
+pre code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.text-break {
+    word-break: break-all;
+}
+
+.card {
+    border: 1px solid rgba(0,0,0,.125);
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+
+.copy-script-btn:hover {
+    opacity: 0.9;
+}
+
+/* 修改 Accordion 相關樣式 */
+.accordion-button:not(.collapsed) {
+    background-color: rgba(13, 110, 253, 0.1);
+    color: #0d6efd;
+}
+
+.accordion-button:focus {
+    box-shadow: none;
+    border-color: rgba(13, 110, 253, 0.2);
+}
+
+.accordion-item {
+    border: 1px solid rgba(0,0,0,.125);
+    background-color: transparent !important;
+}
+
+.accordion-button {
+    background-color: #f8f9fa !important;
+}
+
+/* 移除 accordion-body 的背景色 */
+.accordion-body {
+    background-color: transparent !important;
+    padding: 1.25rem;
+    text-align: left !important;
+}
+
+/* 程式碼區塊樣式 */
+pre {
+    background-color: #f8f9fa !important;
+    margin: 0;
+    padding: 1.25rem !important;
+    text-align: left !important;
+}
+
+pre code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 0 !important;
+    white-space: pre !important;
+    display: block !important;
+    background-color: transparent !important;
+}
+
+/* 圖示樣式 */
+.fas {
+    width: 20px;
+    text-align: center;
+}
+
+/* 資訊區塊樣式 */
+.accordion-body .row {
+    margin: 0;
+}
+
+.accordion-body .col-md-6 {
+    padding: 10px 15px;
+}
+
+/* 複製按鈕樣式 */
+.copy-script-btn {
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.copy-script-btn:hover {
+    opacity: 1;
+}
+
+/* 腳本內容樣式 */
+.script-content {
+    margin-top: 1rem;
+    background-color: transparent !important;
+}
+
+.script-title {
+    margin-bottom: 1.5rem !important;
+    padding-bottom: 1rem !important;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* 基本資訊網格布局 */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    padding: 0.5rem;
+}
+
+.info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.info-item i {
+    margin-top: 4px;
+    width: 16px;
+}
+
+.info-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.info-content label {
+    color: #6c757d;
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.info-content span,
+.info-content a {
+    word-break: break-all;
+}
+
+/* 移除 SweetAlert2 內容區的背景 */
+.swal2-html-container {
+    background-color: transparent !important;
+}
+
+.script-content {
+    background-color: transparent !important;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.table td {
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+    padding: 0.75rem;
+}
+
+.table tr:last-child td {
+    border-bottom: none;
+}
+
+.table td a {
+    color: #0d6efd;
+    text-decoration: none;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.table td a:hover {
+    text-decoration: underline;
+}
+
+.text-truncate {
+    max-width: 100%;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.alert ul {
+    padding-left: 1.25rem;
+    margin-bottom: 0;
+}
+
+.alert ul li {
+    margin-bottom: 0.25rem;
+}
+
+.alert ul li:last-child {
+    margin-bottom: 0;
+}
+
+.card {
+    border: 1px solid rgba(0,0,0,.125);
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
 </style>
 {% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">腳本生成紀錄</h2>
+        <button id="clearRecordsBtn" class="btn btn-danger">
+            <i class="fas fa-trash-alt me-1"></i>清除所有紀錄
+        </button>
+    </div>
+
+    <div class="alert alert-info mb-4" role="alert">
+        <h5 class="alert-heading mb-2">
+            <i class="fas fa-info-circle me-2"></i>關於腳本生成紀錄
+        </h5>
+        <p class="mb-2">在這裡，您可以查看所有已生成的爬蟲腳本紀錄。每個紀錄包含：</p>
+        <ul class="mb-0">
+            <li>生成時間 - 腳本產生的確切時間</li>
+            <li>目標網址 - 爬蟲的目標網站</li>
+            <li>使用的提示詞 - 用於生成腳本的提示</li>
+            <li>處理時間 - 腳本生成所需時間</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <!-- 載入指示器 -->
+            <div id="loadingIndicator" class="text-center py-4" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">載入中...</span>
+                </div>
+                <p class="text-muted mt-2 mb-0">載入記錄中...</p>
+            </div>
+
+            <!-- 無記錄提示 -->
+            <div id="noRecordsMsg" class="alert alert-warning m-3" style="display: none;">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                目前沒有任何腳本生成紀錄
+            </div>
+
+            <!-- 記錄表格 -->
+            <div class="table-responsive">
+                <table id="recordsTable" class="table table-hover mb-0" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th style="width: 20%;">生成時間</th>
+                            <th style="width: 35%;">網址</th>
+                            <th style="width: 25%;">提示詞</th>
+                            <th style="width: 10%;" class="text-center">耗時</th>
+                            <th style="width: 10%;" class="text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 表格內容將由 JavaScript 動態生成 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 確保 highlight.js 已載入
+    if (typeof hljs === 'undefined') {
+        console.error('Highlight.js is not loaded');
+        return;
+    }
+
+    loadRecords();
+    
+    // 綁定清除按鈕事件
+    const clearBtn = document.getElementById('clearRecordsBtn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            Swal.fire({
+                title: '確認清除',
+                text: '確定要清除所有腳本生成紀錄嗎？此操作無法復原。',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '確定清除',
+                cancelButtonText: '取消'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    clearRecords();
+                }
+            });
+        });
+    }
+});
+
+function loadRecords() {
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const noRecordsMsg = document.getElementById('noRecordsMsg');
+    const recordsTable = document.getElementById('recordsTable');
+    const clearBtn = document.getElementById('clearRecordsBtn');
+
+    loadingIndicator.style.display = 'block';
+    noRecordsMsg.style.display = 'none';
+    recordsTable.style.display = 'none';
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    fetch('/api/script-records')
+        .then(response => response.json())
+        .then(data => {
+            loadingIndicator.style.display = 'none';
+            
+            if (!data.records || data.records.length === 0) {
+                noRecordsMsg.style.display = 'block';
+                recordsTable.style.display = 'none';
+                if (clearBtn) clearBtn.style.display = 'none';
+                return;
+            }
+
+            noRecordsMsg.style.display = 'none';
+            recordsTable.style.display = 'table';
+            if (clearBtn) clearBtn.style.display = 'block';
+
+            const tbody = recordsTable.querySelector('tbody');
+            tbody.innerHTML = '';
+
+            data.records.forEach(record => {
+                const escapedScript = record.script
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${formatDate(record.timestamp)}</td>
+                        <td class="text-truncate" style="max-width: 200px;">
+                            <a href="${record.url}" target="_blank" title="${record.url}">${record.url}</a>
+                        </td>
+                        <td class="text-truncate" style="max-width: 200px;" title="${record.prompt}">
+                            ${record.prompt}
+                        </td>
+                        <td class="text-center">${Number(record.duration).toFixed(2)}秒</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-primary view-script-btn" data-script="${escapedScript}">
+                                <i class="fas fa-code me-1"></i>查看腳本
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // 為所有查看腳本按鈕添加事件監聽器
+            document.querySelectorAll('.view-script-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    viewScript(this.getAttribute('data-script'));
+                });
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            loadingIndicator.style.display = 'none';
+            Swal.fire({
+                title: '錯誤',
+                text: '載入記錄時發生錯誤',
+                icon: 'error'
+            });
+        });
+}
+
+function viewScript(encodedScript) {
+    try {
+        const script = decodeHTMLEntities(encodedScript);
+        const row = event.target.closest('tr');
+        const timestamp = row.cells[0].textContent;
+        const url = row.cells[1].querySelector('a').href;
+        const prompt = row.cells[2].textContent;
+        const duration = row.cells[3].textContent;
+
+        const modalContent = `
+            <div class="script-content">
+                <div class="accordion" id="scriptAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#infoCollapse" aria-expanded="true" aria-controls="infoCollapse">
+                                基本資訊
+                            </button>
+                        </h2>
+                        <div id="infoCollapse" class="accordion-collapse collapse show" 
+                             data-bs-parent="#scriptAccordion">
+                            <div class="accordion-body">
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <i class="fas fa-clock text-primary"></i>
+                                        <div class="info-content">
+                                            <label>生成時間</label>
+                                            <span>${timestamp}</span>
+                                        </div>
+                                    </div>
+                                    <div class="info-item">
+                                        <i class="fas fa-stopwatch text-primary"></i>
+                                        <div class="info-content">
+                                            <label>執行耗時</label>
+                                            <span>${Number(duration.replace('秒', '')).toFixed(2)}秒</span>
+                                        </div>
+                                    </div>
+                                    <div class="info-item">
+                                        <i class="fas fa-link text-primary"></i>
+                                        <div class="info-content">
+                                            <label>目標網址</label>
+                                            <a href="${url}" target="_blank">${url}</a>
+                                        </div>
+                                    </div>
+                                    <div class="info-item">
+                                        <i class="fas fa-comment text-primary"></i>
+                                        <div class="info-content">
+                                            <label>提示詞</label>
+                                            <span>${prompt}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#codeCollapse" aria-expanded="true" aria-controls="codeCollapse">
+                                Python 程式碼
+                            </button>
+                        </h2>
+                        <div id="codeCollapse" class="accordion-collapse collapse show" 
+                             data-bs-parent="#scriptAccordion">
+                            <div class="position-relative">
+                                <pre class="m-0"><code class="language-python">${extractPythonCode(script)}</code></pre>
+                                <button class="btn btn-sm btn-primary position-absolute top-0 end-0 m-2 copy-script-btn" 
+                                        title="複製程式碼">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        Swal.fire({
+            title: '腳本內容',
+            html: modalContent,
+            width: '80%',
+            showCloseButton: true,
+            showConfirmButton: false,
+            customClass: {
+                popup: 'swal-wide',
+                content: 'text-start',
+                title: 'script-title',
+                htmlContainer: 'p-0'
+            },
+            didOpen: () => {
+                // 確保 highlight.js 已載入
+                if (typeof hljs !== 'undefined') {
+                    document.querySelectorAll('pre code').forEach((block) => {
+                        hljs.highlightElement(block);
+                    });
+                }
+
+                // 綁定複製按鈕事件
+                const copyBtn = document.querySelector('.copy-script-btn');
+                if (copyBtn) {
+                    copyBtn.addEventListener('click', () => {
+                        const code = document.querySelector('pre code').textContent;
+                        navigator.clipboard.writeText(code)
+                            .then(() => {
+                                copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                                copyBtn.classList.add('btn-success');
+                                copyBtn.classList.remove('btn-primary');
+                                setTimeout(() => {
+                                    copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+                                    copyBtn.classList.remove('btn-success');
+                                    copyBtn.classList.add('btn-primary');
+                                }, 2000);
+                            })
+                            .catch(err => {
+                                console.error('Copy failed:', err);
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: '複製失敗',
+                                    text: '無法複製到剪貼簿'
+                                });
+                            });
+                    });
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error showing script:', error);
+        Swal.fire('錯誤', '載入腳本失敗', 'error');
+    }
+}
+
+function extractPythonCode(script) {
+    return script.replace(/```python\n?|\n?```/g, '').trim();
+}
+
+function decodeHTMLEntities(text) {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+}
+
+function formatDate(timestamp) {
+    if (!timestamp) return '未提供';
+    try {
+        const date = new Date(timestamp);
+        return date.toLocaleString('zh-TW', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+    } catch (e) {
+        console.error('Date formatting error:', e);
+        return timestamp;
+    }
+}
+
+function clearRecords() {
+    const clearBtn = document.getElementById('clearRecordsBtn');
+    if (!clearBtn) return;
+
+    clearBtn.disabled = true;
+    const originalContent = clearBtn.innerHTML;
+    clearBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>清除中...';
+
+    fetch('/api/script-records', {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(response.statusText || '清除記錄失敗');
+        }
+        return response.json();
+    })
+    .then(data => {
+        loadRecords();
+        Swal.fire({
+            title: '已清除',
+            text: data.message || '所有記錄已成功清除',
+            icon: 'success',
+            confirmButtonText: '確定'
+        });
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            title: '錯誤',
+            text: '清除記錄時發生錯誤：' + error.message,
+            icon: 'error',
+            confirmButtonText: '確定'
+        });
+    })
+    .finally(() => {
+        clearBtn.disabled = false;
+        clearBtn.innerHTML = originalContent;
+    });
+}
+</script>
 {% endblock %}

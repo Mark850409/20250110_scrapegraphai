@@ -1,0 +1,65 @@
+.script-result-modal {
+    font-family: monospace;
+}
+
+.script-result-modal pre {
+    text-align: left;
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 4px;
+    max-height: 400px;
+    overflow-y: auto;
+    margin: 1rem 0;
+}
+
+.script-result-modal code {
+    white-space: pre-wrap;
+    font-size: 14px;
+}
+
+.script-result-modal .swal2-html-container {
+    text-align: left;
+}
+
+.script-actions {
+    margin-top: 1rem;
+    text-align: center;
+}
+
+.script-actions button,
+.script-actions a {
+    margin: 0 0.5rem;
+}
+
+.copy-btn {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+}
+
+.copy-btn:hover {
+    background-color: #5a6268;
+}
+
+/* highlight.js 樣式覆蓋 */
+.hljs {
+    background: #f8f9fa !important;
+    padding: 1em !important;
+    border-radius: 4px;
+}
+
+/* SweetAlert2 樣式調整 */
+.swal2-popup {
+    font-size: 1rem;
+}
+
+.swal2-title {
+    font-size: 1.5rem;
+}
+
+.swal2-html-container {
+    margin: 1rem 0;
+}

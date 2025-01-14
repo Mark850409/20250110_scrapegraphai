@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('index') }}">首頁</a></li>
+            <li class="breadcrumb-item active" aria-current="page">執行腳本</li>
+        </ol>
+    </nav>
+
+    <h1 class="mb-4">執行腳本</h1>
+    
+    <form id="script-executor-form">
+        <div class="mb-3">
+            <label for="script-input" class="form-label">輸入腳本</label>
+            <textarea class="form-control" id="script-input" rows="10" placeholder="請輸入 Python 腳本"></textarea>
+        </div>
+
+        <div class="mb-3">
+            <label for="csv-name" class="form-label">CSV檔案名稱</label>
+            <input type="text" class="form-control" id="csv-name" placeholder="請輸入檔案名稱 (不需要輸入副檔名)">
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-play"></i> 執行腳本
+        </button>
+    </form>
+
+    <div id="table-container" class="mt-4">
+        <!-- 表格將在這裡動態生成 -->
+    </div>
+</div>
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<link href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css" rel="stylesheet">
+
+<style>
+    #table-container {
+        overflow-x: auto;
+    }
+    .dataTables_wrapper {
+        margin-top: 20px;
+    }
+    .dt-buttons {
+        margin-bottom: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+
+<!-- Custom JS -->
+<script src="{{ url_for('static', filename='js/script_executor.js') }}"></script>
+{% endblock %}
+
+{% endblock %}

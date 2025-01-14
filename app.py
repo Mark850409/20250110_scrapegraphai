@@ -5,14 +5,16 @@ import subprocess
 import pandas as pd
 import sqlite3
 import json
+import time
 import traceback
 from datetime import datetime
 from scrapegraphai.graphs import SmartScraperGraph, ScriptCreatorGraph
 from dotenv import load_dotenv
 from typing import List
-import time
 import google.generativeai as genai
 from sqlalchemy import func
+import openai
+from openai import OpenAI
 
 app = Flask(__name__)
 load_dotenv()
@@ -266,31 +268,61 @@ def index():
 
 @app.route('/smart-scraper')
 def smart_scraper():
-    return render_template('smart_scraper.html')
+    alert = {
+        'type': 'info',
+        'icon': 'fas fa-info-circle',
+        'title': '使用說明',
+        'message': '智能爬蟲功能可以自動分析網頁結構，智能識別關鍵資訊，並即時進行資料爬取。您只需輸入目標網址，系統就會自動完成爬蟲任務。'
+    }
+    return render_template('smart_scraper.html', breadcrumb_title='智能爬蟲', alert=alert)
 
 @app.route('/script-creator')
 def script_creator():
-    return render_template('script_creator.html')
+    alert = {
+        'type': 'info',
+        'icon': 'fas fa-info-circle',
+        'title': '使用說明',
+        'message': '在這裡，您可以使用AI技術來生成Python爬蟲腳本。只需提供目標網站URL和描述您想要爬取的資料，系統就會自動為您生成相應的爬蟲腳本。'
+    }
+    return render_template('script_creator.html', breadcrumb_title='腳本生成', alert=alert)
 
 @app.route('/script-records')
 def script_records():
-    return render_template('script_records.html')
+    return render_template('script_records.html', breadcrumb_title='腳本生成紀錄')
 
-@app.route('/execute-script')
-def execute_script_page():
-    return render_template('execute_script.html')
+@app.route('/script-executor')
+def script_executor():
+    alert = {
+        'type': 'info',
+        'icon': 'fas fa-info-circle',
+        'title': '使用說明',
+        'message': '在這裡您可以執行已生成的爬蟲腳本。選擇要執行的腳本，設置必要的參數，然後點擊執行按鈕開始爬取資料。您可以實時查看執行進度和結果。'
+    }
+    return render_template('script_executor.html', breadcrumb_title='執行腳本', alert=alert)
 
 @app.route('/learning-center')
 def learning_center():
-    return render_template('learning_center.html')
+    return render_template('learning_center.html', breadcrumb_title='學習中心')
 
 @app.route('/prompt-management')
 def prompt_management():
-    return render_template('prompt_management.html')
+    alert = {
+        'type': 'info',
+        'icon': 'fas fa-info-circle',
+        'title': '使用說明',
+        'message': '在這裡您可以管理和自定義AI提示詞。良好的提示詞可以幫助系統生成更準確的爬蟲腳本。您可以新增、編輯或刪除提示詞模板。'
+    }
+    return render_template('prompt_management.html', breadcrumb_title='自定義提示詞', alert=alert)
 
 @app.route('/pricing')
 def pricing():
-    return render_template('pricing.html')
+    alert = {
+        'type': 'info',
+        'icon': 'fas fa-info-circle',
+        'title': '方案說明',
+        'message': '我們提供多種靈活的付費方案，從基礎版到企業版，滿足不同規模用戶的需求。選擇適合您的方案，開始使用我們的AI爬蟲工具。'
+    }
+    return render_template('pricing.html', breadcrumb_title='定價', alert=alert)
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
@@ -323,6 +355,36 @@ def chat():
             'error': str(e)
         }), 500
 
+def get_all_script_records():
+    """
+    從資料庫獲取所有腳本記錄
+    """
+    try:
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        c.execute('SELECT * FROM script_records ORDER BY timestamp DESC')
+        records = c.fetchall()
+        
+        # 將查詢結果轉換為字典格式
+        formatted_records = []
+        for record in records:
+            formatted_records.append({
+                '_id': record[0],  # id
+                'timestamp': record[1],  # timestamp
+                'duration': record[2],  # duration
+                'script': record[3],  # script
+                'url': record[4],  # url
+                'prompt': record[5]  # prompt
+            })
+        
+        return formatted_records
+    except Exception as e:
+        print(f"Error getting script records: {e}")
+        return []
+    finally:
+        if 'conn' in locals():
+            conn.close()
+
 @app.route('/api/script-records')
 def get_script_records():
     try:
@@ -330,44 +392,60 @@ def get_script_records():
         c = conn.cursor()
         c.execute('SELECT * FROM script_records ORDER BY timestamp DESC')
         records = c.fetchall()
-        conn.close()
         
-        def format_timestamp(ts):
-            try:
-                # 解析 ISO 格式時間戳
-                dt = datetime.fromisoformat(ts)
-                # 轉換為前端期望的格式
-                return dt.strftime('%Y-%m-%d %H:%M:%S')
-            except:
-                return ts
+        formatted_records = []
+        seen_urls = set()  # 用於追蹤已經看過的 URL
         
-        return jsonify({
-            'records': [{
-                'id': r[0],
-                'timestamp': format_timestamp(r[1]),
-                'duration': r[2],
-                'script': r[3],
-                'url': r[4],
-                'prompt': r[5]
-            } for r in records]
-        })
+        for record in records:
+            # 使用 URL 和時間戳作為唯一標識
+            url_timestamp = (record[4], record[1])  # url 和 timestamp
+            
+            if url_timestamp not in seen_urls:
+                seen_urls.add(url_timestamp)
+                try:
+                    script_content = record[3]  # 直接使用原始腳本內容
+                    
+                    formatted_records.append({
+                        'id': record[0],
+                        'timestamp': record[1],
+                        'duration': float(record[2]),
+                        'script': script_content,
+                        'url': record[4],
+                        'prompt': record[5]
+                    })
+                except Exception as e:
+                    print(f"Error formatting record: {e}")
+                    continue
+
+        return jsonify({'records': formatted_records})
     except Exception as e:
-        app.logger.error(f"Error getting script records: {str(e)}")
+        print(f"Error getting script records: {e}")
         return jsonify({'error': str(e)}), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 @app.route('/api/script-records', methods=['DELETE'])
 def clear_script_records():
+    conn = None
     try:
         conn = sqlite3.connect('scripts.db')
         c = conn.cursor()
         c.execute('DELETE FROM script_records')
         conn.commit()
-        conn.close()
         app.logger.info("All script records cleared")
         return jsonify({'status': 'success', 'message': '所有記錄已清除'}), 200
     except Exception as e:
+        if conn:
+            conn.rollback()
         app.logger.error(f"Error clearing script records: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception as e:
+                app.logger.error(f"Error closing database connection: {str(e)}")
 
 @app.route('/api/models/<graph_type>')
 def get_models(graph_type):
@@ -428,114 +506,41 @@ def scrape():
 
 @app.route('/api/generate-script', methods=['POST'])
 def generate_script():
-    try:
-        data = request.json
-        app.logger.info(f"Received data for script generation: {json.dumps(data)}")
-        
-        # 驗證必要的參數
-        required_fields = ['graph_name', 'model_name', 'url', 'prompt']
-        for field in required_fields:
-            if field not in data:
-                error_msg = f"缺少必要參數: {field}"
-                app.logger.error(error_msg)
-                return jsonify({'status': 'error', 'message': error_msg}), 400
-        
-        # 檢查 API Key
-        if data['graph_name'] in ['chatgpt', 'gemini'] and not data.get('api_key'):
-            error_msg = f"{data['graph_name'].upper()} 需要 API Key"
-            app.logger.error(error_msg)
-            return jsonify({'status': 'error', 'message': error_msg}), 400
-            
-        app.logger.info(f"Starting script generation with model: {data['graph_name']} - {data['model_name']}")
-        
-        script, duration = run_script_creator(
-            data['graph_name'],
-            data['url'],
-            data['prompt'],
-            data.get('api_key', ''),  # 對於 Ollama，API key 可以為空
-            data['model_name']
-        )
-        
-        app.logger.info(f"Script generated successfully in {duration:.2f} seconds")
-        
-        # 保存記錄到數據庫
+    data = request.get_json()
+    model_type = data.get('model_type')
+    url = data.get('url')
+    prompt = data.get('prompt')
+
+    if model_type == 'ollama':
+        server_url = data.get('server_url')
+        model = data.get('model')
         try:
-            conn = sqlite3.connect('scripts.db')
-            c = conn.cursor()
-            current_time = datetime.now().isoformat()
-            c.execute('''
-                INSERT INTO script_records (timestamp, duration, script, url, prompt)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (current_time, duration, script, data['url'], data['prompt']))
-            conn.commit()
-            conn.close()
-            app.logger.info("Script record saved to database")
-        except Exception as db_error:
-            app.logger.error(f"Error saving to database: {str(db_error)}")
-            # 即使保存失敗，我們仍然返回生成的腳本
-        
-        return jsonify({
-            'status': 'success',
-            'script': script,
-            'duration': f"{duration:.2f}"
-        })
-    except ValueError as ve:
-        error_msg = str(ve)
-        app.logger.error(f"Validation error: {error_msg}")
-        return jsonify({'status': 'error', 'message': error_msg}), 400
-    except Exception as e:
-        error_msg = f"腳本生成錯誤: {str(e)}"
-        app.logger.error(f"Script generation error: {str(e)}\n{traceback.format_exc()}")
-        return jsonify({'status': 'error', 'message': error_msg}), 500
+            script = generate_script_with_ollama(server_url, model, url, prompt)
+            return jsonify({'success': True, 'script': script, 'duration': 0})
+        except Exception as e:
+            app.logger.error(f"Ollama script generation error: {str(e)}")
+            return jsonify({'success': False, 'message': '生成腳本失敗: ' + str(e)}), 500
 
-@app.route('/api/execute-script', methods=['POST'])
-def execute_script():
-    try:
-        data = request.json
-        script = data['script']
-        csv_filename = data.get('csv_filename', 'output.csv')
-        
-        if not csv_filename.endswith('.csv'):
-            csv_filename += '.csv'
-            
-        complete_script = """
-import pandas as pd
-import os
-""" + script
+    elif model_type == 'chatgpt':
+        api_key = data.get('api_key')
+        try:
+            script = generate_script_with_chatgpt(url, prompt, api_key)
+            return jsonify({'success': True, 'script': script, 'duration': 0})
+        except Exception as e:
+            app.logger.error(f"ChatGPT script generation error: {str(e)}")
+            return jsonify({'success': False, 'message': '生成腳本失敗: ' + str(e)}), 500
 
-        script_file = "temp_script.py"
-        with open(script_file, "w", encoding="utf-8") as f:
-            f.write(complete_script)
-            
-        process = subprocess.run(
-            ["python", script_file],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        
-        os.remove(script_file)
-        
-        if process.returncode != 0:
-            raise ValueError(f"腳本執行失敗:\n{process.stderr}")
-            
-        if os.path.exists(csv_filename):
-            df = pd.read_csv(csv_filename)
-            return jsonify({
-                'status': 'success',
-                'message': '腳本執行成功',
-                'data': df.to_dict('records'),
-                'file_url': csv_filename
-            })
-        else:
-            raise ValueError("找不到生成的CSV文件")
-            
-    except Exception as e:
-        app.logger.error(f"Script execution error: {str(e)}\n{traceback.format_exc()}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 400
+    elif model_type == 'gemini':
+        try:
+            script = generate_script_with_gemini(url, prompt)
+            return jsonify({'success': True, 'script': script, 'duration': 0})
+        except Exception as e:
+            app.logger.error(f"Gemini script generation error: {str(e)}")
+            return jsonify({'success': False, 'message': '生成腳本失敗: ' + str(e)}), 500
+
+    # 處理未知的模型類型
+    return jsonify({'success': False, 'message': f'不支持的模型類型: {model_type}'}), 400
+
 
 @app.route('/download/<path:filename>')
 def download_file(filename):
@@ -845,6 +850,7 @@ def migrate_prompts_db():
             SELECT name FROM sqlite_master 
             WHERE type='table' AND name='prompts'
         ''')
+        
         if not c.fetchone():
             init_prompt_db()
         
@@ -1419,6 +1425,294 @@ def update_prompt_status(prompt_id):
     finally:
         if 'conn' in locals():
             conn.close()
+
+# 添加 ChatGPT 腳本生成函數
+def generate_script_with_chatgpt(url, prompt, api_key):
+    """使用 ChatGPT 生成爬蟲腳本"""
+    start_time = time.time()  # 開始計時
+    try:
+        # 設置 OpenAI API key
+        client = OpenAI(api_key=api_key)
+        
+        # 構建提示詞
+        system_prompt = """你是一個專業的 Python 爬蟲工程師。請根據用戶提供的網址和需求，生成一個使用 Python 的爬蟲腳本。
+        腳本需要包含必要的錯誤處理，並使用 requests 和 BeautifulSoup 函式庫。請只返回 Python 代碼，不需要其他解釋。"""
+        
+        user_prompt = f"網址：{url}\n需求：{prompt}\n請生成爬蟲腳本。"
+        
+        # 調用 ChatGPT API
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7
+        )
+        
+        # 獲取生成的腳本
+        script = response.choices[0].message.content.strip()
+        
+        # 檢查腳本是否為空
+        if not script:
+            raise Exception("生成的腳本為空")
+            
+        # 計算執行時間（轉換為秒）
+        duration = round(time.time() - start_time, 2)
+            
+        # 記錄到資料庫
+        try:
+            conn = sqlite3.connect('scripts.db')
+            c = conn.cursor()
+            c.execute('''
+                INSERT INTO script_records (timestamp, duration, script, url, prompt)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), duration, script, url, prompt))
+            conn.commit()
+        except Exception as e:
+            app.logger.error(f"Database error: {str(e)}")
+        finally:
+            if conn:
+                conn.close()
+        
+        return script
+        
+    except Exception as e:
+        app.logger.error(f"ChatGPT script generation error: {str(e)}")
+        raise Exception(f"生成腳本時發生錯誤: {str(e)}")
+
+# 添加 Gemini 腳本生成函數
+def generate_script_with_gemini(url, prompt):
+    """使用 Gemini 生成爬蟲腳本"""
+    start_time = time.time()  # 開始計時
+    try:
+        # 構建提示詞
+        system_prompt = """你是一個專業的 Python 爬蟲工程師。請根據用戶提供的網址和需求，生成一個使用 Python 的爬蟲腳本。
+        腳本需要包含必要的錯誤處理，並使用 requests 和 BeautifulSoup 函式庫。請只返回 Python 代碼，不需要其他解釋。"""
+        
+        user_prompt = f"網址：{url}\n需求：{prompt}\n請生成爬蟲腳本。"
+        
+        # 組合完整提示詞
+        full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        
+        # 調用 Gemini API
+        response = model.generate_content(full_prompt)
+        
+        # 獲取生成的腳本
+        script = response.text.strip()
+        
+        # 檢查腳本是否為空
+        if not script:
+            raise Exception("生成的腳本為空")
+            
+        # 計算執行時間（轉換為秒）
+        duration = round(time.time() - start_time, 2)
+            
+        # 記錄到資料庫
+        try:
+            conn = sqlite3.connect('scripts.db')
+            c = conn.cursor()
+            c.execute('''
+                INSERT INTO script_records (timestamp, duration, script, url, prompt)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), duration, script, url, prompt))
+            conn.commit()
+        except Exception as e:
+            app.logger.error(f"Database error: {str(e)}")
+        finally:
+            if conn:
+                conn.close()
+        
+        return script
+        
+    except Exception as e:
+        app.logger.error(f"Gemini script generation error: {str(e)}")
+        raise Exception(f"生成腳本時發生錯誤: {str(e)}")
+
+def generate_script_with_ollama(server_url, model, url, prompt):
+    """使用 Ollama 生成爬蟲腳本"""
+    start_time = time.time()  # 開始計時
+    try:
+        # 構建提示詞
+        system_prompt = """你是一個專業的 Python 爬蟲工程師。請根據用戶提供的網址和需求，生成一個使用 Python 的爬蟲腳本。
+        腳本需要包含必要的錯誤處理，並使用 requests 和 BeautifulSoup 函式庫。請只返回 Python 代碼，不需要其他解釋。"""
+        
+        user_prompt = f"網址：{url}\n需求：{prompt}\n請生成爬蟲腳本。"
+        
+        # 組合完整提示詞
+        full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        
+        # 調用 Ollama API
+        response = requests.post(f"{server_url}/api/generate", json={
+            "model": model,
+            "prompt": full_prompt,
+            "stream": False
+        })
+
+        if response.status_code != 200:
+            raise Exception(f"Ollama 伺服器回應錯誤: {response.status_code} - {response.text}")
+
+        # 獲取生成的腳本
+        result = response.json()
+        if 'response' not in result:
+            raise Exception("Ollama 回應格式錯誤")
+            
+        script = result['response'].strip()
+        
+        # 檢查腳本是否為空
+        if not script:
+            raise Exception("生成的腳本為空")
+            
+        # 計算執行時間（轉換為秒）
+        duration = round(time.time() - start_time, 2)
+            
+        # 記錄到資料庫
+        try:
+            conn = sqlite3.connect('scripts.db')
+            c = conn.cursor()
+            c.execute('''
+                INSERT INTO script_records (timestamp, duration, script, url, prompt)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), duration, script, url, prompt))
+            conn.commit()
+        except Exception as e:
+            app.logger.error(f"Database error: {str(e)}")
+        finally:
+            if conn:
+                conn.close()
+        
+        return script
+        
+    except Exception as e:
+        app.logger.error(f"Ollama script generation error: {str(e)}")
+        raise Exception(f"生成腳本時發生錯誤: {str(e)}")
+
+@app.route('/api/test-ollama-connection', methods=['POST'])
+def test_ollama_connection():
+    try:
+        data = request.get_json()
+        server_url = data.get('server_url')
+        
+        if not server_url:
+            return jsonify({
+                'success': False,
+                'message': '請提供伺服器網址'
+            }), 400
+
+        # 測試連線並獲取可用模型列表
+        try:
+            response = requests.get(f"{server_url}/api/tags")
+            if response.status_code == 200:
+                models = [model['name'] for model in response.json()['models']]
+                return jsonify({
+                    'success': True,
+                    'models': models
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': f'伺服器回應錯誤: {response.status_code}'
+                }), 400
+        except requests.exceptions.RequestException as e:
+            return jsonify({
+                'success': False,
+                'message': f'連線失敗: {str(e)}'
+            }), 400
+
+    except Exception as e:
+        app.logger.error(f"Error testing Ollama connection: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': '系統錯誤'
+        }), 500
+
+@app.route('/api/execute-script', methods=['POST'])
+def execute_script():
+    try:
+        data = request.get_json()
+        script = data.get('script')
+        csv_name = data.get('csv_name')
+
+        if not script or not csv_name:
+            return jsonify({'success': False, 'message': '缺少必要參數'})
+
+        # 確保 csv_name 有 .csv 副檔名
+        if not csv_name.lower().endswith('.csv'):
+            csv_name += '.csv'
+
+        # 建立臨時目錄（如果不存在）
+        temp_dir = os.path.join(app.root_path, 'temp')
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # 建立臨時 Python 文件
+        script_path = os.path.join(temp_dir, 'temp_script.py')
+        csv_path = os.path.join(temp_dir, csv_name)
+
+        # 添加必要的 import
+        complete_script = """
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+import os
+import json
+import time
+
+""" + script + """
+
+# 確保輸出目錄存在
+os.makedirs(os.path.dirname('""" + csv_path.replace('\\', '\\\\') + """'), exist_ok=True)
+
+# 將資料保存為 CSV
+if 'df' in locals():
+    df.to_csv('""" + csv_path.replace('\\', '\\\\') + """', index=False, encoding='utf-8-sig')
+elif 'data' in locals():
+    pd.DataFrame(data).to_csv('""" + csv_path.replace('\\', '\\\\') + """', index=False, encoding='utf-8-sig')
+"""
+
+        # 寫入腳本內容
+        with open(script_path, 'w', encoding='utf-8') as f:
+            f.write(complete_script)
+
+        # 執行腳本
+        result = subprocess.run(['python', script_path], 
+                              capture_output=True, 
+                              text=True, 
+                              cwd=temp_dir)
+
+        if result.returncode != 0:
+            raise Exception(f'腳本執行錯誤: {result.stderr}')
+
+        # 讀取生成的 CSV 文件
+        if not os.path.exists(csv_path):
+            raise Exception('找不到生成的 CSV 文件')
+
+        df = pd.read_csv(csv_path, encoding='utf-8-sig')
+        
+        # 轉換數據為 JSON 格式
+        data = df.values.tolist()
+        columns = df.columns.tolist()
+
+        return jsonify({
+            'success': True,
+            'data': data,
+            'columns': columns,
+            'message': '腳本執行成功'
+        })
+
+    except Exception as e:
+        app.logger.error(f'Script execution error: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        })
+
+    finally:
+        # 清理臨時文件
+        try:
+            if os.path.exists(script_path):
+                os.remove(script_path)
+        except:
+            pass
 
 if __name__ == '__main__':
     init_db()
