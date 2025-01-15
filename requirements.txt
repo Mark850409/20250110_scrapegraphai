@@ -4,3 +4,4 @@ pandas
 python-dotenv
 scrapegraphai
 google-generativeai
+dnspython

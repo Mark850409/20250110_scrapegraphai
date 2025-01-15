@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>執行 Python 腳本</title>
+</head>
+<body>
+    <h1>執行腳本</h1>
+    <textarea id="script" rows="10" cols="50" placeholder="輸入 Python 腳本"></textarea><br>
+    <input type="text" id="csv_name" placeholder="CSV 檔案名稱"><br>
+    <button id="execute">執行腳本</button>
+    <pre id="output"></pre>
+
+    <script>
+        document.getElementById('execute').addEventListener('click', async () => {
+            const script = document.getElementById('script').value;
+            const csv_name = document.getElementById('csv_name').value;
+
+            const response = await fetch('/api/execute-script', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ script, csv_name })
+            });
+
+            const result = await response.json();
+            const outputElement = document.getElementById('output');
+
+            if (result.success) {
+                outputElement.textContent = `執行成功:\n${result.output}`;
+            } else {
+                outputElement.textContent = `執行失敗:\n${result.error}`;
+            }
+        });
+    </script>
+</body>
+</html>

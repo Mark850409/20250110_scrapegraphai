@@ -290,6 +290,12 @@ def script_creator():
 def script_records():
     return render_template('script_records.html', breadcrumb_title='腳本生成紀錄')
 
+
+@app.route('/knowledge_base_manage')
+def knowledge_base_manage():
+    """知識庫管理頁面路由"""
+    return render_template('knowledge_base_manage.html', breadcrumb_title='知識庫管理')
+
 @app.route('/script-executor')
 def script_executor():
     alert = {
@@ -1534,8 +1540,89 @@ def generate_script_with_ollama(server_url, model, url, prompt):
     start_time = time.time()  # 開始計時
     try:
         # 構建提示詞
-        system_prompt = """你是一個專業的 Python 爬蟲工程師。請根據用戶提供的網址和需求，生成一個使用 Python 的爬蟲腳本。
-        腳本需要包含必要的錯誤處理，並使用 requests 和 BeautifulSoup 函式庫。請只返回 Python 代碼，不需要其他解釋。"""
+        system_prompt = """你是一位專業的 Python 爬蟲工程師，請根據以下需求生成一個完整的爬蟲腳本：
+
+## 任務目標
+生成一個針對 Google 搜尋結果頁面的爬蟲腳本，使用 Selenium 模擬真實瀏覽器行為
+
+## 技術要求
+- 使用 Python 3.x
+- 使用 selenium 和 webdriver_manager
+- 使用顯式等待（explicit wait）確保元素載入
+- 所有爬取的資料需存放在 articles 陣列中
+- 包含完整的錯誤處理機制
+
+## 必要功能
+1. Selenium WebDriver 設定與初始化
+2. 元素等待機制實現
+3. 瀏覽器行為模擬（捲動、點擊等）
+4. 完整的異常處理機制
+   - WebDriver 異常處理
+   - 元素定位失敗處理
+   - 網路超時處理
+   - 資料解析異常處理
+
+## 程式碼規範
+- 設定適當的 User-Agent
+- 實作隨機延遲機制
+- 加入詳細的註解說明
+- 符合 PEP 8 規範
+- 使用 try-except 確保穩定性
+
+## 環境設定要求
+- 需包含所有必要的 import 語句
+- 需說明必要的套件安裝指令
+- 需包含 WebDriver 管理相關設定
+
+## 資料處理要求
+- 將所有爬取的資料存入 articles 陣列
+- 每筆資料需包含：
+  - 標題
+  - 網址
+  - 摘要描述
+  - 爬取時間戳記
+- 實作資料清理和格式化功能
+
+## 輸出格式範例
+```python
+# 搜尋結果元素定位
+search_results = driver.find_elements(By.CSS_SELECTOR, "div.g")
+
+# 儲存結果的陣列
+articles = []
+
+# 遍歷搜尋結果
+for result in search_results:
+    try:
+        # 取得標題
+        title = result.find_element(By.CSS_SELECTOR, "h3").text
+        
+        # 取得連結
+        link = result.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
+        
+        # 取得摘要
+        snippet = result.find_element(By.CSS_SELECTOR, "div.VwiC3b").text
+        
+        # 加入陣列
+        articles.append({
+            "title": title,
+            "url": link,
+            "snippet": snippet,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+        
+    except Exception as e:
+        print(f"解析錯誤: {str(e)}")
+        continue
+```
+
+## 額外注意事項
+- 使用 WebDriverWait 進行元素等待
+- 加入隨機延遲避免被封鎖
+- 處理彈出視窗和 Cookie 提示
+- 確保程式可以持續運行而不會中斷
+
+"""
         
         user_prompt = f"網址：{url}\n需求：{prompt}\n請生成爬蟲腳本。"
         
@@ -1630,91 +1717,331 @@ def test_ollama_connection():
 def execute_script():
     try:
         data = request.get_json()
-        script = data.get('script')
-        csv_name = data.get('csv_name')
+        if not data or 'script' not in data or 'csv_name' not in data:
+            return jsonify({
+                'success': False,
+                'error': '缺少必要參數'
+            }), 400
 
-        if not script or not csv_name:
-            return jsonify({'success': False, 'message': '缺少必要參數'})
+        script = data['script']
+        csv_name = data['csv_name']
+        
+        # 驗證腳本
+        def is_valid_python_script(script):
+            """
+            驗證腳本是否為有效的 Python 代碼，並進行語法和安全性檢查
+            """
+            import ast
+            import tokenize
+            from io import StringIO
+            
+            # 檢查是否為空
+            if not script or not script.strip():
+                return False, "腳本內容不能為空"
+                
+            # 基本語法檢查
+            try:
+                # 檢查是否有語法錯誤
+                compile(script, '<string>', 'exec')
+            except SyntaxError as e:
+                line_no = e.lineno if hasattr(e, 'lineno') else '未知'
+                col_no = e.offset if hasattr(e, 'offset') else '未知'
+                error_msg = str(e).split('\n')[0] if str(e) else '語法錯誤'
+                return False, f"Python 語法錯誤 (第 {line_no} 行，第 {col_no} 列): {error_msg}"
+            except Exception as e:
+                return False, f"Python 代碼錯誤: {str(e)}"
+                
+            # 詳細的語法分析
+            try:
+                ast.parse(script)
+            except Exception as e:
+                return False, f"Python 語法分析錯誤: {str(e)}"
+                
+            # 檢查是否包含危險的內容
+            dangerous_keywords = [
+                'exec', 'eval', 'os.system', 'subprocess.call', 
+                'subprocess.run', 'subprocess.Popen', '__import__',
+                'open', 'file', 'execfile', 'compile', 'input',
+                'os.remove', 'os.unlink', 'shutil.rmtree', 'sys.exit',
+                'os.chmod', 'os.chown', 'os.rename', 'os.renames',
+                'socket', 'urllib'
+            ]
+            
+            # 檢查每個關鍵字
+            for keyword in dangerous_keywords:
+                if keyword in script:
+                    return False, f"腳本包含不允許的關鍵字: {keyword}"
+                    
+            # 檢查是否只包含基本的 Python 語法
+            try:
+                tree = ast.parse(script)
+                for node in ast.walk(tree):
+                    # 檢查是否使用了不允許的語句類型
+                    if isinstance(node, (ast.Import, ast.ImportFrom)):
+                        module = node.names[0].name
+                        allowed_modules = {'requests','pandas', 'numpy', 'bs4','BeautifulSoup','csv','time', 'datetime', 'json', 're','webdriver','os','selenium','By','WebDriverWait','EC','ChromeDriverManager','TimeoutException','WebDriverException','Options','random','expected_conditions'}
+                        if module.split('.')[0] not in allowed_modules:
+                            return False, f"不允許導入模組: {module}"
+                            
+                    # 檢查是否使用了危險的函數調用
+                    elif isinstance(node, ast.Call):
+                        if isinstance(node.func, ast.Name):
+                            func_name = node.func.id
+                            if func_name in ['eval', 'exec', 'compile']:
+                                return False, f"不允許使用函數: {func_name}"
+                                
+            except Exception as e:
+                return False, f"腳本分析錯誤: {str(e)}"
+                
+            return True, ""
 
-        # 確保 csv_name 有 .csv 副檔名
-        if not csv_name.lower().endswith('.csv'):
-            csv_name += '.csv'
-
-        # 建立臨時目錄（如果不存在）
-        temp_dir = os.path.join(app.root_path, 'temp')
-        os.makedirs(temp_dir, exist_ok=True)
-
-        # 建立臨時 Python 文件
-        script_path = os.path.join(temp_dir, 'temp_script.py')
-        csv_path = os.path.join(temp_dir, csv_name)
-
-        # 添加必要的 import
-        complete_script = """
+        is_valid, error_message = is_valid_python_script(script)
+        if not is_valid:
+            return jsonify({
+                'success': False,
+                'error': error_message
+            }), 400
+            
+        # 確保 CSV 檔名不包含副檔名
+        csv_name = csv_name.replace('.csv', '')
+        
+        # 獲取當前腳本的目錄
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # 建立臨時腳本文件
+        script_filename = os.path.join(current_dir, f'temp_script_{int(time.time())}.py')
+        
+        # 在腳本中添加必要的 import
+        script_with_imports = """# -*- coding: utf-8 -*-
 import pandas as pd
+import numpy as np
 import requests
 from bs4 import BeautifulSoup
-import os
-import json
 import time
+import os
+import sys
+import json
+
+# 設置默認編碼
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+if sys.stderr.encoding != 'utf-8':
+    sys.stderr.reconfigure(encoding='utf-8')
 
 """ + script + """
 
-# 確保輸出目錄存在
-os.makedirs(os.path.dirname('""" + csv_path.replace('\\', '\\\\') + """'), exist_ok=True)
-
-# 將資料保存為 CSV
-if 'df' in locals():
-    df.to_csv('""" + csv_path.replace('\\', '\\\\') + """', index=False, encoding='utf-8-sig')
-elif 'data' in locals():
-    pd.DataFrame(data).to_csv('""" + csv_path.replace('\\', '\\\\') + """', index=False, encoding='utf-8-sig')
+# 保存數據到 CSV
+if 'articles' in locals():
+    try:
+        if not articles:
+            print('未找到任何文章數據')
+            sys.exit(1)
+            
+        if not isinstance(articles, list):
+            print('articles 不是有效的列表格式')
+            sys.exit(1)
+            
+        # 將列表轉換為 DataFrame
+        df = pd.DataFrame(articles)
+        
+        if df.empty:
+            print('DataFrame 為空，無法保存')
+            sys.exit(1)
+            
+        # 清理數據
+        cleaned_data = []
+        for _, row in df.iterrows():
+            cleaned_row = {}
+            for col in df.columns:
+                value = row[col]
+                if pd.isna(value):
+                    cleaned_row[col] = None
+                elif isinstance(value, (np.int64, np.int32)):
+                    cleaned_row[col] = int(value)
+                elif isinstance(value, (np.float64, np.float32)):
+                    cleaned_row[col] = float(value)
+                else:
+                    cleaned_row[col] = str(value)
+            cleaned_data.append(cleaned_row)
+            
+        # 獲取腳本所在目錄
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+            
+        # 保存 CSV
+        csv_filename = '""" + csv_name + """.csv'
+        csv_path = os.path.join(current_dir, csv_filename)
+        
+        # 將清理後的數據轉換回 DataFrame
+        cleaned_df = pd.DataFrame(cleaned_data)
+        cleaned_df.to_csv(csv_path, index=False, encoding='utf-8')
+        
+        print(f'成功保存 CSV 到：{csv_path}')
+        print(f'CSV 欄位：{", ".join(cleaned_df.columns)}')
+        print(f'數據條數：{len(cleaned_df)}')
+        
+        # 驗證文件是否存在
+        if not os.path.exists(csv_path):
+            print(f'CSV 文件未成功創建：{csv_path}')
+            sys.exit(1)
+            
+        # 嘗試讀取文件以驗證
+        try:
+            test_df = pd.read_csv(csv_path, encoding='utf-8')
+            print(f'CSV 文件驗證成功，包含 {len(test_df)} 條數據')
+        except Exception as e:
+            print(f'CSV 文件驗證失敗：{str(e)}')
+            sys.exit(1)
+            
+    except Exception as e:
+        print(f'保存 CSV 時發生錯誤: {str(e)}')
+        sys.exit(1)
+else:
+    print('未找到 articles 變量')
+    sys.exit(1)
 """
 
-        # 寫入腳本內容
-        with open(script_path, 'w', encoding='utf-8') as f:
-            f.write(complete_script)
-
-        # 執行腳本
-        result = subprocess.run(['python', script_path], 
-                              capture_output=True, 
-                              text=True, 
-                              cwd=temp_dir)
-
-        if result.returncode != 0:
-            raise Exception(f'腳本執行錯誤: {result.stderr}')
-
-        # 讀取生成的 CSV 文件
-        if not os.path.exists(csv_path):
-            raise Exception('找不到生成的 CSV 文件')
-
-        df = pd.read_csv(csv_path, encoding='utf-8-sig')
+        print(f"Executing script with filename: {script_filename}")
         
-        # 轉換數據為 JSON 格式
-        data = df.values.tolist()
-        columns = df.columns.tolist()
+        # 使用 utf-8 編碼寫入腳本
+        with open(script_filename, 'w', encoding='utf-8') as f:
+            f.write(script_with_imports)
 
-        return jsonify({
-            'success': True,
-            'data': data,
-            'columns': columns,
-            'message': '腳本執行成功'
-        })
+        try:
+            # 設置環境變量
+            env = os.environ.copy()
+            env.update({
+                "PYTHONIOENCODING": "utf-8",
+                "PYTHONLEGACYWINDOWSSTDIO": "utf-8",
+                "PYTHONPATH": current_dir
+            })
+            
+            # 設定執行超時時間為 60 秒
+            result = subprocess.run(
+                ['python', '-X', 'utf8', script_filename],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                encoding='utf-8',
+                env=env,
+                cwd=current_dir  # 設置工作目錄
+            )
+
+            print(f"Script output: {result.stdout}")
+            print(f"Script errors: {result.stderr}")
+
+            if result.returncode != 0:
+                error_msg = result.stderr if result.stderr else result.stdout
+                if "未找到任何文章數據" in error_msg:
+                    error_msg = "未找到任何文章數據，請確認網頁結構是否正確"
+                elif "articles 不是有效的列表格式" in error_msg:
+                    error_msg = "爬取的數據格式不正確，請確認返回的是文章列表"
+                elif "DataFrame 為空" in error_msg:
+                    error_msg = "爬取的數據為空，請確認是否成功獲取文章"
+                elif "NoneType" in error_msg and "text" in error_msg:
+                    error_msg = "網頁元素未找到，請確認網頁結構是否符合預期"
+                elif "NameResolutionError" in error_msg or "getaddrinfo failed" in error_msg:
+                    error_msg = "無法連接到目標網站，請檢查:\n1. 網路連接是否正常\n2. DNS 設置是否正確\n3. 目標網站是否可訪問"
+                elif "ConnectionError" in error_msg:
+                    error_msg = "連接到網站時發生錯誤，請檢查:\n1. 網路連接是否正常\n2. 網站是否可以正常訪問\n3. 是否需要使用代理伺服器"
+                raise Exception(f"腳本執行錯誤: {error_msg}")
+            
+            # 檢查 CSV 文件是否生成
+            csv_filename = f"{csv_name}.csv"
+            csv_path = os.path.join(current_dir, csv_filename)
+            print(f"Checking for CSV file: {csv_path}")
+            
+            if not os.path.exists(csv_path):
+                print(f"CSV file not found at: {csv_path}")
+                raise Exception("未找到有效的文章數據，請確保爬取到的數據格式正確")
+
+            # 讀取 CSV 文件
+            print(f"Reading CSV file: {csv_path}")
+            df = pd.read_csv(csv_path, encoding='utf-8')
+            
+            if df.empty:
+                raise Exception("未找到有效的文章數據")
+            
+            # 轉換數據為 JSON 格式，處理特殊值
+            records = []
+            for _, row in df.iterrows():
+                record = {}
+                for col in df.columns:
+                    value = row[col]
+                    if pd.isna(value):
+                        record[col] = None
+                    else:
+                        record[col] = str(value)
+                records.append(record)
+
+            # 清理臨時文件
+            if os.path.exists(script_filename):
+                os.remove(script_filename)
+            if os.path.exists(csv_path):
+                os.remove(csv_path)
+
+            return jsonify({
+                'success': True,
+                'data': records,
+                'columns': df.columns.tolist()
+            })
+
+        except subprocess.TimeoutExpired:
+            if os.path.exists(script_filename):
+                os.remove(script_filename)
+            return jsonify({
+                'success': False,
+                'error': '腳本執行超時'
+            }), 408
+
+        except Exception as e:
+            if os.path.exists(script_filename):
+                os.remove(script_filename)
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
 
     except Exception as e:
-        app.logger.error(f'Script execution error: {str(e)}')
         return jsonify({
             'success': False,
-            'message': str(e)
-        })
+            'error': f'請求處理錯誤: {str(e)}'
+        }), 500
 
-    finally:
-        # 清理臨時文件
-        try:
-            if os.path.exists(script_path):
-                os.remove(script_path)
-        except:
-            pass
+@app.route('/knowledge-base')
+def knowledge_base():
+    return render_template('knowledge_base.html')
+
+@app.route('/api/knowledge-base/list')
+def list_knowledge_base():
+    try:
+        # 這裡應該從數據庫或文件系統中獲取知識庫文件列表
+        # 這是一個示例響應
+        files = [
+            {
+                'id': '1',
+                'filename': 'example.csv',
+                'uploadTime': '2025-01-14T15:30:00',
+                'size': 1024,
+                'status': 'uploaded'
+            }
+        ]
+        return jsonify(files)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/knowledge-base/delete', methods=['POST'])
+def delete_knowledge_base():
+    try:
+        data = request.get_json()
+        file_ids = data.get('ids', [])
+        
+        # 這裡應該實現實際的文件刪除邏輯
+        # 從數據庫和文件系統中刪除文件
+        
+        return jsonify({'message': 'Files deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
-    init_db()
-    init_prompt_db()
     app.run(debug=True)

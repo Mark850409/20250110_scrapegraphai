@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}知識庫管理{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/knowledge_base.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">知識庫管理</h2>
+
+    <!-- Nav tabs -->
+    <ul class="nav nav-tabs" id="knowledgeBaseTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab">
+                知識庫上傳
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="manage-tab" data-bs-toggle="tab" data-bs-target="#manage" type="button" role="tab">
+                知識庫管理
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab content -->
+    <div class="tab-content" id="knowledgeBaseContent">
+        <!-- Upload Tab -->
+        <div class="tab-pane fade show active" id="upload" role="tabpanel">
+            <form id="uploadForm" class="needs-validation" novalidate>
+                <div class="mb-3">
+                    <label for="knowledgeBaseUrl" class="form-label required">知識庫網址</label>
+                    <input type="text" class="form-control" id="knowledgeBaseUrl" required>
+                </div>
+                <div class="mb-3">
+                    <label for="processId" class="form-label required">知識庫流程ID</label>
+                    <input type="text" class="form-control" id="processId" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label required">上傳檔案</label>
+                    <div id="dropZone" class="drag-drop-zone">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <p class="upload-text mb-2">拖曳檔案至此處或點擊上傳</p>
+                        <p class="upload-subtext mb-0">支援的檔案類型：CSV、Excel (xlsx/xls)、PDF、Markdown (md)、Word (docx)、Text (txt)</p>
+                        <input type="file" id="fileInput" multiple style="display: none" accept=".csv,.xlsx,.xls,.pdf,.md,.docx,.txt">
+                    </div>
+                    <div id="fileList" class="file-list"></div>
+                </div>
+                <div class="button-container">
+                    <button type="submit" class="btn btn-primary btn-with-icon" id="uploadButton">
+                        <i class="fas fa-upload btn-icon"></i>
+                        <span>上傳檔案</span>
+                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                    </button>
+                    <button type="button" class="btn btn-danger btn-with-icon" id="clearButton">
+                        <i class="fas fa-trash-alt btn-icon"></i>
+                        <span>清空檔案</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Manage Tab -->
+        <div class="tab-pane fade" id="manage" role="tabpanel">
+            <div class="search-container">
+                <form id="searchForm" class="search-form">
+                    <div class="form-group">
+                        <label for="searchKnowledgeBaseUrl" class="form-label required">知識庫網址</label>
+                        <input type="text" class="form-control" id="searchKnowledgeBaseUrl" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="searchProcessId" class="form-label required">知識庫流程ID</label>
+                        <input type="text" class="form-control" id="searchProcessId" required>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary" id="searchButton">
+                            <i class="fas fa-search me-2"></i>查詢
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="tableContainer" style="display: none;">
+                <div class="table-top-container">
+                    <input type="text" class="form-control table-search" id="tableSearch" placeholder="搜尋...">
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-striped" id="knowledgeTable">
+                        <thead>
+                            <tr>
+                                <th>檔案名稱</th>
+                                <th>上傳時間</th>
+                                <th>檔案大小</th>
+                                <th>狀態</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="table-bottom-container">
+                    <div class="page-size-container">
+                        <span>每頁顯示:</span>
+                        <select class="form-select" id="pageSize">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <div class="pagination-container">
+                        <ul class="pagination" id="pagination">
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- 添加 highlight.js -->
+<script src="{{ url_for('static', filename='js/knowledge_base.js') }}"></script>
+{% endblock %}

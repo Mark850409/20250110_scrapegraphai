@@ -1,0 +1,138 @@
+.navbar {
+    padding: 1rem 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background-color: #ffffff !important;
+}
+.navbar-brand {
+    font-weight: 600;
+    color: #2c3e50 !important;
+}
+.navbar-nav .nav-item {
+    margin: 0 0.5rem;
+}
+.navbar-nav .nav-link {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    color: #2c3e50 !important;
+}
+.navbar-nav .nav-link:hover {
+    background-color: rgba(0,0,0,0.05);
+    color: #3498db !important;
+}
+.navbar-nav .dropdown-menu {
+    border: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border-radius: 8px;
+}
+.navbar-nav .dropdown-item {
+    padding: 0.7rem 1.5rem;
+    transition: all 0.3s ease;
+}
+.navbar-nav .dropdown-item:hover {
+    background-color: #f8f9fa;
+    color: #3498db;
+}
+.navbar-toggler {
+    border: none;
+    padding: 0.5rem;
+}
+.navbar-toggler:focus {
+    box-shadow: none;
+    outline: none;
+}
+.navbar-nav .nav-link.active {
+    background-color: rgba(52, 152, 219, 0.1);
+    color: #3498db !important;
+}
+.dropdown-toggle::after {
+    margin-left: 0.5em;
+    vertical-align: middle;
+}
+.footer {
+    background-color: #212529;
+    color: #f8f9fa;
+    padding: 3rem 0;
+    margin-top: 3rem;
+}
+.footer a {
+    color: #adb5bd;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+.footer a:hover {
+    color: #f8f9fa;
+}
+.footer-title {
+    color: #f8f9fa;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+.footer-links {
+    list-style: none;
+    padding: 0;
+}
+.footer-links li {
+    margin-bottom: 0.75rem;
+}
+.footer-bottom {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin-top: 2rem;
+    padding-top: 2rem;
+    color: #adb5bd;
+}
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.content-wrapper {
+    flex: 1 0 auto;
+    padding-bottom: 3rem;
+}
+
+.footer {
+    flex-shrink: 0;
+    background-color: #212529;
+    color: #f8f9fa;
+    padding: 3rem 0;
+    width: 100%;
+}
+
+/* 麵包屑導航樣式 */
+.breadcrumb {
+    background: transparent;
+    margin-bottom: 0;
+    padding: 0.75rem 0;
+    font-size: 0.9rem;
+}
+
+.breadcrumb-item a {
+    color: #6c757d;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.breadcrumb-item a:hover {
+    color: #3498db;
+}
+
+.breadcrumb-item.active {
+    color: #3498db;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+    content: "›";
+    color: #6c757d;
+}
+
+.breadcrumb-wrapper {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
