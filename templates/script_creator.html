@@ -33,39 +33,41 @@
                 <!-- Ollama 伺服器設定區塊 -->
                 <div id="ollamaServerSection" style="display: none;">
                     <div class="mb-4">
-                        <label class="form-label">Ollama 伺服器網址</label>
+                        <label class="form-label required-field">Ollama 伺服器網址 <span class="text-danger">*</span></label>
                         <div class="input-group">
-                            <input type="text" id="ollamaServerUrl" class="form-control" 
+                            <input type="text" class="form-control" name="ollama-server" id="ollamaServerUrl"
                                    placeholder="例如: http://localhost:11434" 
-                                   value="http://localhost:11434">
+                                   value="">
                             <button class="btn btn-primary" type="button" id="testOllamaConnection">
                                 <i class="fas fa-plug me-1"></i>測試連線
                             </button>
                         </div>
                         <div class="form-text">請輸入 Ollama 伺服器的完整網址</div>
                     </div>
+                </div>
 
-                    <!-- Ollama 模型選擇區塊 -->
-                    <div id="ollamaModelSection" class="mb-4" style="display: none;">
-                        <label class="form-label">選擇模型</label>
-                        <select class="form-select" id="ollamaModel">
-                            <option value="" selected disabled>請選擇模型</option>
-                        </select>
-                    </div>
+                <!-- Ollama 模型選擇區塊 -->
+                <div id="ollamaModelSection" class="mb-4" style="display: none;">
+                    <label class="form-label">選擇模型</label>
+                    <select class="form-select" id="ollamaModel">
+                        <option value="" selected disabled>請選擇模型</option>
+                    </select>
                 </div>
 
                 <!-- 原有的模型選擇下拉選單 -->
-                <div class="mb-3">
-                    <label class="form-label">選擇模型</label>
-                    <select class="form-select" name="model-name" required></select>
+                <div class="mb-3 model-select-container">
+                    <label class="form-label required-field">選擇模型</label>
+                    <select class="form-select" name="model-name">
+                        <option value="" selected disabled>請選擇模型...</option>
+                    </select>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">網址</label>
+                    <label class="form-label">網址 <span class="text-danger">*</span></label>
                     <input type="url" class="form-control" name="url" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">提示詞
+                    <label class="form-label">提示詞 <span class="text-danger">*</span>
                         <a href="{{ url_for('learning_center') }}#prompt-tutorial" class="ms-1 text-decoration-none" title="查看提示詞撰寫教學">
                             <i class="fas fa-question-circle"></i>
                         </a>
@@ -73,11 +75,41 @@
                     <textarea class="form-control" name="prompt" rows="3" required></textarea>
                 </div>
                 <div class="mb-3 api-key-field">
-                    <label class="form-label">API Key</label>
+                    <label class="form-label">API Key <span class="text-danger">*</span></label>
                     <input type="password" class="form-control" name="api-key">
                 </div>
-                <button type="submit" class="btn btn-primary">生成腳本</button>
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary" style="min-width: 150px;">
+                        <i class="fas fa-code me-2"></i>生成腳本
+                    </button>
+                </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- 在生成的脚本对话框中添加复制按钮 -->
+<div class="modal fade" id="scriptModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">生成的腳本</h5>
+                <div class="ms-2">
+                    <span class="badge bg-secondary">執行時間：<span id="executionTime"></span> 秒</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre><code class="python" id="scriptContent"></code></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="copyScript">
+                    <i class="fas fa-copy me-2"></i>複製腳本
+                </button>
+                <button type="button" class="btn btn-success" id="viewRecords">
+                    <i class="fas fa-history me-2"></i>查看腳本生成紀錄
+                </button>
+            </div>
         </div>
     </div>
 </div>

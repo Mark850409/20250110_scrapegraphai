@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file,Response
 import os
 import requests
 import subprocess
@@ -15,6 +15,8 @@ import google.generativeai as genai
 from sqlalchemy import func
 import openai
 from openai import OpenAI
+import csv
+import io
 
 app = Flask(__name__)
 load_dotenv()
@@ -94,47 +96,44 @@ with app.app_context():
     init_prompt_db()
 
 # 獲取可用的 Ollama 模型
-def get_ollama_models() -> List[str]:
+def get_ollama_models(server_url=None):
     """
-    動態獲取 Ollama 本地模型列表
+    獲取 Ollama 可用的模型列表
+    Args:
+        server_url (str, optional): Ollama 伺服器網址. 如果未提供，使用環境變數或預設值
     Returns:
-        List[str]: 可用的 LLM 模型列表
+        List[str]: 模型名稱列表
     """
     try:
-        base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        response = requests.get(f"{base_url}/api/tags")
-        
-        if response.status_code != 200:
-            app.logger.error(f"獲取模型列表失敗: {response.status_code} - {response.text}")
-            return ["mistral:7b", "llama3.1:8b"]
+        # 如果未提供 server_url，使用環境變數或預設值
+        if server_url is None:
+            server_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
             
-        models_data = response.json().get('models', [])
+        # 確保 server_url 有正確的 scheme
+        if not server_url.startswith(('http://', 'https://')):
+            server_url = f'http://{server_url}'
         
-        # 獲取所有模型名稱
-        model_names = [
-            model['name'] 
-            for model in models_data
-        ]
+        # 移除結尾的斜線
+        server_url = server_url.rstrip('/')
         
-        # 如果沒有找到任何模型，返回默認模型
-        if not model_names:
-            app.logger.warning("未找到可用的模型，使用默認模型")
-            return ["mistral:7b", "llama3.1:8b"]
-            
-        # 按照模型名稱排序
-        model_names.sort()
+        # 使用 urljoin 來正確拼接 URL
+        tags_url = f'{server_url}/api/tags'
         
-        app.logger.info(f"找到的模型列表: {model_names}")
-        return model_names
+        response = requests.get(tags_url)
+        response.raise_for_status()
         
-    except Exception as e:
-        app.logger.error(f"獲取模型列表時出錯: {str(e)}")
-        return ["mistral:7b", "llama3.1:8b"]
+        models = response.json().get('models', [])
+        return [model['name'] for model in models]
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f'Error getting Ollama models: {str(e)}')
+        return []
 
 def get_chatgpt_models():
+    """Get available ChatGPT models"""
     return ["gpt-3.5-turbo", "gpt-4"]
 
 def get_gemini_models():
+    """Get available Gemini models"""
     return ["gemini-pro"]
 
 def get_graph_config(graph_name, model_name, user_api_key):
@@ -168,11 +167,11 @@ def get_graph_config(graph_name, model_name, user_api_key):
                     "model": model_name,
                     "temperature": 0,
                     "format": "json",
-                    "base_url": OLLAMA_BASE_URL,
+                    "base_url": os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
                 },
                 "embeddings": {
                     "model": "nomic-embed-text:latest",
-                    "base_url": OLLAMA_BASE_URL,
+                    "base_url": os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
                 },
             })
         else:
@@ -183,20 +182,8 @@ def get_graph_config(graph_name, model_name, user_api_key):
         app.logger.error(f"Error in get_graph_config: {str(e)}")
         raise
 
-def parse_scraper_result(result):
-    try:
-        parsed_data = []
-        for debut_year, details in result.items():
-            if isinstance(details, dict):
-                group_names = details.get("團體名稱", [])
-                for group_name in group_names:
-                    parsed_data.append([group_name, debut_year])
-        return parsed_data
-    except Exception as e:
-        app.logger.error(f"Error parsing scraper result: {str(e)}")
-        raise ValueError("解析爬取結果時出錯")
-
 def run_scraper(graph_name, url, prompt, user_api_key, model_name):
+    """執行智能爬取"""
     try:
         app.logger.info(f"Starting scraper with model: {graph_name} - {model_name}")
         graph_config = get_graph_config(graph_name, model_name, user_api_key)
@@ -209,58 +196,121 @@ def run_scraper(graph_name, url, prompt, user_api_key, model_name):
             config=graph_config
         )
         
-        result = smart_scraper_graph.run()
-        
-        if not result:
-            raise ValueError("爬取結果為空，請檢查 URL 或提示詞是否正確。")
-            
-        app.logger.info("Scraper completed successfully")
-        return parse_scraper_result(result)
-    except Exception as e:
-        app.logger.error(f"Scraper error: {str(e)}\n{traceback.format_exc()}")
-        raise ValueError(f"爬取失敗: {str(e)}")
+        data = smart_scraper_graph.run()
+        app.logger.info(f"Scraper result: {json.dumps(data)}")
+        app.logger.debug(f"Data type: {type(data)}")
 
-def run_script_creator(graph_name, url, prompt, user_api_key, model_name):
-    try:
-        app.logger.info(f"Starting script creator with model: {graph_name} - {model_name}")
-        app.logger.info(f"URL: {url}")
-        app.logger.info(f"Prompt: {prompt}")
-        start_time = time.time()
+        def parse_data(data):
+            """解析不同格式的数据"""
+            try:
+                # 处理字符串类型的数据
+                if isinstance(data, str):
+                    try:
+                        data = json.loads(data)
+                    except json.JSONDecodeError:
+                        return [{"content": data}]
+
+                # 处理字典类型的数据
+                if isinstance(data, dict):
+                    # 如果是单个项目的字典
+                    if any(key in data for key in ['content', 'title', 'link', 'description']):
+                        return [data]
+                    # 如果包含数据列表，直接返回列表内容
+                    for key in ['articles', 'items', 'results', 'data']:
+                        if key in data and isinstance(data[key], list):
+                            # 确保列表中的每个项目都是字典格式
+                            return [
+                                item if isinstance(item, dict) else {"content": str(item)}
+                                for item in data[key]
+                            ]
+                    # 其他情况，将整个字典作为一个项目
+                    return [data]
+
+                # 如果已经是列表
+                if isinstance(data, list):
+                    # 确保列表中的每个项目都是字典格式
+                    return [
+                        item if isinstance(item, dict) else {"content": str(item)}
+                        for item in data
+                    ]
+
+                # 其他类型转换为字符串
+                return [{"content": str(data)}]
+
+            except Exception as e:
+                app.logger.error(f"Error parsing data: {str(e)}")
+                return [{"error": str(e)}]
+
+        def normalize_item(item):
+            """标准化单个数据项"""
+            try:
+                if isinstance(item, str):
+                    return [{"content": item.strip()}]
+
+                if isinstance(item, dict):
+                    # 检查是否有数组字段需要展开
+                    array_fields = []
+                    max_length = 1
+                    normalized_base = {}
+                    
+                    # 处理每个字段
+                    for key, value in item.items():
+                        if value is not None:
+                            if isinstance(value, list):
+                                array_fields.append((key, value))
+                                max_length = max(max_length, len(value))
+                            else:
+                                normalized_base[key] = str(value).strip()
+
+                    # 如果没有数组字段，直接返回单个对象
+                    if not array_fields:
+                        return [normalized_base] if normalized_base else [{"content": str(item)}]
+
+                    # 展开数组字段生成多行数据
+                    result = []
+                    for i in range(max_length):
+                        row = normalized_base.copy()
+                        for field, values in array_fields:
+                            row[field] = str(values[i]) if i < len(values) else ""
+                        result.append(row)
+                    
+                    return result
+
+                return [{"content": str(item)}]
+
+            except Exception as e:
+                app.logger.error(f"Error normalizing item: {str(e)}")
+                return [{"error": str(e)}]
+
+        # 处理数据
+        processed_data = parse_data(data)
         
-        config = get_graph_config(graph_name, model_name, user_api_key)
-        app.logger.info(f"Generated config: {json.dumps(config)}")
-        
-        script_creator = ScriptCreatorGraph(
-            prompt=prompt,
-            source=url,
-            config=config
-        )
-        
-        app.logger.info("Running script creator...")
-        result = script_creator.run()
-        app.logger.info(f"Script creator result length: {len(result) if result else 0}")
-        
-        if not result or not result.strip():
-            raise ValueError("生成的腳本為空")
+        # 标准化所有数据项并展平结果
+        normalized_data = []
+        for item in processed_data:
+            normalized_items = normalize_item(item)
+            normalized_data.extend(normalized_items)
+
+        # 去重
+        final_data = []
+        seen = set()
+        for item in normalized_data:
+            # 创建唯一标识
+            item_values = tuple(sorted([
+                (k, v) for k, v in item.items()
+                if v is not None and str(v).strip()
+            ]))
             
-        duration = time.time() - start_time
-        
-        # 儲存腳本記錄
-        conn = sqlite3.connect('scripts.db')
-        c = conn.cursor()
-        current_time = datetime.now().isoformat()
-        c.execute('''
-            INSERT INTO script_records (timestamp, duration, script, url, prompt)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (current_time, duration, result.strip(), url, prompt))
-        conn.commit()
-        conn.close()
-        
-        app.logger.info(f"Script creator completed successfully in {duration:.2f} seconds")
-        return result.strip(), duration
+            if item_values not in seen:
+                seen.add(item_values)
+                final_data.append(item)
+
+        app.logger.debug(f"Final processed data: {json.dumps(final_data)}")
+        return final_data
+
     except Exception as e:
-        app.logger.error(f"Script creator error: {str(e)}\n{traceback.format_exc()}")
-        raise ValueError(f"腳本生成失敗: {str(e)}")
+        app.logger.error(f"Error in run_scraper: {str(e)}")
+        raise
 
 @app.route('/')
 def index():
@@ -453,20 +503,24 @@ def clear_script_records():
             except Exception as e:
                 app.logger.error(f"Error closing database connection: {str(e)}")
 
-@app.route('/api/models/<graph_type>')
-def get_models(graph_type):
+@app.route('/api/models/<model_type>')
+def get_models(model_type):
+    """Get available models based on model type"""
     try:
-        if graph_type == 'chatgpt':
-            return jsonify(get_chatgpt_models())
-        elif graph_type == 'gemini':
-            return jsonify(get_gemini_models())
-        elif graph_type == 'ollama':
-            return jsonify(get_ollama_models())
+        if model_type == 'chatgpt':
+            models = get_chatgpt_models()
+        elif model_type == 'gemini':
+            models = get_gemini_models()
+        elif model_type == 'ollama':
+            # 直接呼叫 get_ollama_models，使用預設的 server_url
+            models = get_ollama_models()
         else:
             return jsonify([])
+            
+        return jsonify(models)
     except Exception as e:
-        app.logger.error(f"Error getting models for {graph_type}: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error getting {model_type} models: {str(e)}")
+        return jsonify([])
 
 @app.route('/api/ollama-models')
 def get_ollama_models_api():
@@ -481,33 +535,57 @@ def get_ollama_models_api():
 @app.route('/api/scrape', methods=['POST'])
 def scrape():
     try:
-        data = request.json
-        app.logger.info(f"Received scrape request: {json.dumps(data)}")
+        data = request.get_json()
         
-        result = run_scraper(
-            data['graph_name'],
+        # 確保檔案名稱有 .csv 副檔名
+        file_name = data.get('file_name', 'output.csv')
+        if not file_name.lower().endswith('.csv'):
+            file_name += '.csv'
+        
+        # 根據不同的模型類型處理參數
+        graph_name = data['graph_name']
+        api_key = None
+        
+        if graph_name == 'ollama':
+            os.environ['OLLAMA_BASE_URL'] = data.get('ollama_server', 'http://localhost:11434')
+        else:
+            # ChatGPT 和 Gemini 需要 API Key
+            api_key = data.get('api_key')
+            if not api_key:
+                return jsonify({
+                    'success': False,
+                    'error': 'API Key is required for ChatGPT and Gemini'
+                }), 400
+        
+        raw_result = run_scraper(
+            graph_name,
             data['url'],
             data['prompt'],
-            data['api_key'],
+            api_key,
             data['model_name']
         )
+
+        # 確保 downloads 目錄存在
+        downloads_dir = os.path.join(app.static_folder, 'downloads')
+        os.makedirs(downloads_dir, exist_ok=True)
         
-        # Save to CSV
-        df = pd.DataFrame(result, columns=["團體名稱", "出道年份"])
-        output_file = f"static/downloads/{data.get('file_name', 'output.csv')}"
-        os.makedirs(os.path.dirname(output_file), exist_ok=True)
-        df.to_csv(output_file, index=False, encoding="utf-8-sig")
+        # 保存為 CSV 文件
+        if raw_result:
+            csv_path = os.path.join(downloads_dir, file_name)
+            df = pd.DataFrame(raw_result)
+            df.to_csv(csv_path, index=False, encoding='utf-8-sig')
         
+        # 返回結構化的 JSON 給前端
         return jsonify({
-            'status': 'success',
-            'data': result,
-            'file_url': output_file
+            'success': True,
+            'data': raw_result,
+            'file_name': file_name
         })
     except Exception as e:
         app.logger.error(f"Scrape error: {str(e)}\n{traceback.format_exc()}")
         return jsonify({
-            'status': 'error',
-            'message': str(e)
+            'success': False,
+            'error': str(e)
         }), 400
 
 @app.route('/api/generate-script', methods=['POST'])
@@ -695,10 +773,16 @@ def create_prompt():
             return jsonify({'success': False, 'message': '新增失敗'}), 500
             
         except sqlite3.Error as e:
-            return jsonify({'success': False, 'message': f'資料庫錯誤: {str(e)}'}), 500
+            return jsonify({
+                'success': False,
+                'message': f'資料庫錯誤: {str(e)}'
+            }), 500
             
     except Exception as e:
-        return jsonify({'success': False, 'message': f'系統錯誤: {str(e)}'}), 500
+        return jsonify({
+            'success': False,
+            'message': f'系統錯誤: {str(e)}'
+        }), 500
     finally:
         if 'conn' in locals():
             conn.close()
@@ -1563,7 +1647,7 @@ def generate_script_with_ollama(server_url, model, url, prompt):
    - 資料解析異常處理
 
 ## 程式碼規範
-- 設定適當的 User-Agent
+- 設置默認編碼
 - 實作隨機延遲機制
 - 加入詳細的註解說明
 - 符合 PEP 8 規範
@@ -1680,38 +1764,72 @@ def test_ollama_connection():
         data = request.get_json()
         server_url = data.get('server_url')
         
+        print(f"Testing connection to Ollama server: {server_url}")
+        
         if not server_url:
-            return jsonify({
-                'success': False,
-                'message': '請提供伺服器網址'
-            }), 400
+            return jsonify({'success': False, 'error': '請提供伺服器網址'})
 
-        # 測試連線並獲取可用模型列表
-        try:
-            response = requests.get(f"{server_url}/api/tags")
-            if response.status_code == 200:
-                models = [model['name'] for model in response.json()['models']]
-                return jsonify({
-                    'success': True,
-                    'models': models
-                })
-            else:
+        server_url = server_url.rstrip('/')
+        
+        print(f"Sending request to: {server_url}/api/tags")
+        response = requests.get(f'{server_url}/api/tags')
+        print(f"Response status code: {response.status_code}")
+        
+        if response.status_code == 200:
+            result = response.json()
+            print(f"Response data: {result}")
+            models = result.get('models', [])
+            model_names = []
+            
+            # 定义需要排除的关键词
+            excluded_keywords = ['embed', 'nomic', 'text-embedding']
+
+            for model in models:
+                if isinstance(model, dict):
+                    model_name = model.get('name', '').strip()  # 清理名稱
+                else:
+                    model_name = str(model).strip()
+                
+                print(f"Checking model: {model_name}")  # 調試輸出模型名稱
+                
+                should_exclude = any(keyword in model_name.lower() for keyword in excluded_keywords)
+                
+                if model_name and not should_exclude:
+                    model_names.append(model_name)
+            
+            if not model_names:
                 return jsonify({
                     'success': False,
-                    'message': f'伺服器回應錯誤: {response.status_code}'
-                }), 400
-        except requests.exceptions.RequestException as e:
+                    'error': '未找到可用的模型'
+                })
+                
+            print(f"Available models: {model_names}")
+            return jsonify({
+                'success': True,
+                'models': sorted(model_names)  # 排序模型列表
+            })
+        else:
+            error_msg = f'連線失敗: {response.status_code}'
+            print(f"Error: {error_msg}")
             return jsonify({
                 'success': False,
-                'message': f'連線失敗: {str(e)}'
-            }), 400
-
-    except Exception as e:
-        app.logger.error(f"Error testing Ollama connection: {str(e)}")
+                'error': error_msg
+            })
+            
+    except requests.exceptions.RequestException as e:
+        error_msg = f'連線失敗: {str(e)}'
+        print(f"Request Exception: {error_msg}")
         return jsonify({
             'success': False,
-            'message': '系統錯誤'
-        }), 500
+            'error': error_msg
+        })
+    except Exception as e:
+        error_msg = f'發生錯誤: {str(e)}'
+        print(f"General Exception: {error_msg}")
+        return jsonify({
+            'success': False,
+            'error': error_msg
+        })
 
 @app.route('/api/execute-script', methods=['POST'])
 def execute_script():
@@ -1722,7 +1840,7 @@ def execute_script():
                 'success': False,
                 'error': '缺少必要參數'
             }), 400
-
+            
         script = data['script']
         csv_name = data['csv_name']
         
@@ -1940,7 +2058,7 @@ else:
                 elif "NoneType" in error_msg and "text" in error_msg:
                     error_msg = "網頁元素未找到，請確認網頁結構是否符合預期"
                 elif "NameResolutionError" in error_msg or "getaddrinfo failed" in error_msg:
-                    error_msg = "無法連接到目標網站，請檢查:\n1. 網路連接是否正常\n2. DNS 設置是否正確\n3. 目標網站是否可訪問"
+                    error_msg = "無法連接到目標網站，請檢查:\n1. 網路連接是否正常\n2. DNS 設置是否正確\n3. 目標網站是否可以正常訪問"
                 elif "ConnectionError" in error_msg:
                     error_msg = "連接到網站時發生錯誤，請檢查:\n1. 網路連接是否正常\n2. 網站是否可以正常訪問\n3. 是否需要使用代理伺服器"
                 raise Exception(f"腳本執行錯誤: {error_msg}")
