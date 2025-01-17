@@ -1,0 +1,240 @@
+.empty-state {
+    padding: 2rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.swal-wide {
+    max-width: 800px !important;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.table th {
+    font-weight: 600;
+}
+
+.spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+.swal2-popup {
+    padding: 1.5rem !important;
+}
+
+.swal2-html-container {
+    margin: 0 !important;
+}
+
+pre {
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    margin: 0;
+}
+
+pre code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.text-break {
+    word-break: break-all;
+}
+
+.card {
+    border: 1px solid rgba(0,0,0,.125);
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}
+
+.copy-script-btn:hover {
+    opacity: 0.9;
+}
+
+/* 修改 Accordion 相關樣式 */
+.accordion-button:not(.collapsed) {
+    background-color: rgba(13, 110, 253, 0.1);
+    color: #0d6efd;
+}
+
+.accordion-button:focus {
+    box-shadow: none;
+    border-color: rgba(13, 110, 253, 0.2);
+}
+
+.accordion-item {
+    border: 1px solid rgba(0,0,0,.125);
+    background-color: transparent !important;
+}
+
+.accordion-button {
+    background-color: #f8f9fa !important;
+}
+
+/* 移除 accordion-body 的背景色 */
+.accordion-body {
+    background-color: transparent !important;
+    padding: 1.25rem;
+    text-align: left !important;
+}
+
+/* 程式碼區塊樣式 */
+pre {
+    background-color: #f8f9fa !important;
+    margin: 0;
+    padding: 1.25rem !important;
+    text-align: left !important;
+}
+
+pre code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 0 !important;
+    white-space: pre !important;
+    display: block !important;
+    background-color: transparent !important;
+}
+
+/* 圖示樣式 */
+.fas {
+    width: 20px;
+    text-align: center;
+}
+
+/* 資訊區塊樣式 */
+.accordion-body .row {
+    margin: 0;
+}
+
+.accordion-body .col-md-6 {
+    padding: 10px 15px;
+}
+
+/* 複製按鈕樣式 */
+.copy-script-btn {
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.copy-script-btn:hover {
+    opacity: 1;
+}
+
+/* 腳本內容樣式 */
+.script-content {
+    margin-top: 1rem;
+    background-color: transparent !important;
+}
+
+.script-title {
+    margin-bottom: 1.5rem !important;
+    padding-bottom: 1rem !important;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* 基本資訊網格布局 */
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    padding: 0.5rem;
+}
+
+.info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.info-item i {
+    margin-top: 4px;
+    width: 16px;
+}
+
+.info-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.info-content label {
+    color: #6c757d;
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.info-content span,
+.info-content a {
+    word-break: break-all;
+}
+
+/* 移除 SweetAlert2 內容區的背景 */
+.swal2-html-container {
+    background-color: transparent !important;
+}
+
+.script-content {
+    background-color: transparent !important;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.table td {
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+    padding: 0.75rem;
+}
+
+.table tr:last-child td {
+    border-bottom: none;
+}
+
+.table td a {
+    color: #0d6efd;
+    text-decoration: none;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.table td a:hover {
+    text-decoration: underline;
+}
+
+.text-truncate {
+    max-width: 100%;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.alert ul {
+    padding-left: 1.25rem;
+    margin-bottom: 0;
+}
+
+.alert ul li {
+    margin-bottom: 0.25rem;
+}
+
+.alert ul li:last-child {
+    margin-bottom: 0;
+}
+
+.card {
+    border: 1px solid rgba(0,0,0,.125);
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+}

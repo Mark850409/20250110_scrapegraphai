@@ -1,8 +1,0 @@
-﻿date,link,title
-,/projects/rotary-pendulum-rl/,Rotary Pendulum RL Open Source project aimed at controlling a real life rotary pendulum using RL algorithms 
-,https://github.com/PeriniM/DQN-SwingUp,DQN Implementation from scratch Developed a Deep Q-Network algorithm to train a simple and double pendulum 
-,https://github.com/PeriniM/Multi-Agents-HAED,Multi Agents HAED University project which focuses on simulating a multi-agent system to perform environment mapping. Agents
-,https://github.com/PeriniM/Multi-Agents-HAED,equipped with sensors
-,https://github.com/PeriniM/Multi-Agents-HAED,explore and record their surroundings
-,https://github.com/PeriniM/Multi-Agents-HAED,considering uncertainties in their readings.
-,/projects/wireless-esc-drone/,Wireless ESC for Modular Drones Modular drone architecture proposal and proof of concept. The project received maximum grade. 

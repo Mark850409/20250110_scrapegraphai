@@ -67,39 +67,23 @@ function loadRecords() {
                     .replace(/"/g, '&quot;')
                     .replace(/'/g, '&#039;');
 
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="text-nowrap">${formatDate(record.timestamp)}</td>
-                    <td>
-                        <a href="${record.url}" 
-                           class="text-truncate d-inline-block" 
-                           style="max-width: 300px;"
-                           target="_blank" 
-                           title="${record.url}">
-                            ${record.url}
-                        </a>
-                    </td>
-                    <td>
-                        <span class="text-truncate d-inline-block" 
-                              style="max-width: 300px;"
-                              title="${record.prompt}">
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${formatDate(record.timestamp)}</td>
+                        <td class="text-truncate" style="max-width: 200px;">
+                            <a href="${record.url}" target="_blank" title="${record.url}">${record.url}</a>
+                        </td>
+                        <td class="text-truncate" style="max-width: 200px;" title="${record.prompt}">
                             ${record.prompt}
-                        </span>
-                    </td>
-                    <td class="text-center">
-                        <span class="badge bg-light text-dark">
-                            ${Number(record.duration).toFixed(2)}秒
-                        </span>
-                    </td>
-                    <td class="text-center">
-                        <button class="btn btn-primary btn-sm view-script-btn" 
-                                data-script="${escapedScript}">
-                            <i class="fas fa-code me-1"></i>查看腳本
-                        </button>
-                    </td>
+                        </td>
+                        <td class="text-center">${Number(record.duration).toFixed(2)}秒</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-primary view-script-btn" data-script="${escapedScript}">
+                                <i class="fas fa-code me-1"></i>查看腳本
+                            </button>
+                        </td>
+                    </tr>
                 `;
-
-                tbody.appendChild(row);
             });
 
             // 為所有查看腳本按鈕添加事件監聽器
@@ -113,9 +97,9 @@ function loadRecords() {
             console.error('Error:', error);
             loadingIndicator.style.display = 'none';
             Swal.fire({
-                icon: 'error',
                 title: '錯誤',
-                text: '載入記錄時發生錯誤'
+                text: '載入記錄時發生錯誤',
+                icon: 'error'
             });
         });
 }
@@ -126,8 +110,8 @@ function viewScript(encodedScript) {
         const row = event.target.closest('tr');
         const timestamp = row.cells[0].textContent;
         const url = row.cells[1].querySelector('a').href;
-        const prompt = row.cells[2].querySelector('span').textContent;
-        const duration = row.cells[3].querySelector('.badge').textContent;
+        const prompt = row.cells[2].textContent;
+        const duration = row.cells[3].textContent;
 
         const modalContent = `
             <div class="script-content">
@@ -154,7 +138,7 @@ function viewScript(encodedScript) {
                                         <i class="fas fa-stopwatch text-primary"></i>
                                         <div class="info-content">
                                             <label>執行耗時</label>
-                                            <span>${duration}</span>
+                                            <span>${Number(duration.replace('秒', '')).toFixed(2)}秒</span>
                                         </div>
                                     </div>
                                     <div class="info-item">
@@ -248,11 +232,7 @@ function viewScript(encodedScript) {
         });
     } catch (error) {
         console.error('Error showing script:', error);
-        Swal.fire({
-            icon: 'error',
-            title: '錯誤',
-            text: '載入腳本失敗'
-        });
+        Swal.fire('錯誤', '載入腳本失敗', 'error');
     }
 }
 
@@ -308,17 +288,19 @@ function clearRecords() {
     .then(data => {
         loadRecords();
         Swal.fire({
-            icon: 'success',
             title: '已清除',
-            text: data.message || '所有記錄已成功清除'
+            text: data.message || '所有記錄已成功清除',
+            icon: 'success',
+            confirmButtonText: '確定'
         });
     })
     .catch(error => {
         console.error('Error:', error);
         Swal.fire({
-            icon: 'error',
             title: '錯誤',
-            text: '清除記錄時發生錯誤：' + error.message
+            text: '清除記錄時發生錯誤：' + error.message,
+            icon: 'error',
+            confirmButtonText: '確定'
         });
     })
     .finally(() => {

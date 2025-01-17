@@ -136,3 +136,76 @@ body {
     background-color: #f8f9fa;
     border-bottom: 1px solid #e9ecef;
 }
+.feature-card {
+    border: none;
+    border-radius: 15px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    background: #fff;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.feature-icon-wrapper {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--bs-primary-rgb), 0.1);
+    margin-bottom: 1rem;
+}
+
+.card-title {
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.card-text {
+    color: #6c757d;
+}
+
+.btn {
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    text-transform: none;
+}
+
+.display-4 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.lead {
+    color: #6c757d;
+}
+
+/* 為每個功能卡片的圖標背景設置不同顏色 */
+.feature-card:nth-child(1) .feature-icon-wrapper {
+    background: rgba(13, 110, 253, 0.1);
+}
+
+.feature-card:nth-child(2) .feature-icon-wrapper {
+    background: rgba(25, 135, 84, 0.1);
+}
+
+.feature-card:nth-child(3) .feature-icon-wrapper {
+    background: rgba(13, 202, 240, 0.1);
+}
+
+.feature-card:nth-child(4) .feature-icon-wrapper {
+    background: rgba(255, 193, 7, 0.1);
+}
+
+.feature-card:nth-child(5) .feature-icon-wrapper {
+    background: rgba(220, 53, 69, 0.1);
+}
+
+.feature-card:nth-child(6) .feature-icon-wrapper {
+    background: rgba(108, 117, 125, 0.1);
+}

@@ -5,3 +5,5 @@ python-dotenv
 scrapegraphai
 google-generativeai
 dnspython
+langchain-google-genai
+playwright

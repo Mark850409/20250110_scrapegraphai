@@ -1,5 +1,5 @@
 from scrapegraphai.graphs import SmartScraperGraph
-GOOGLE_APIKEY = "AIzaSyABuw6lIbUCzeMztXCgwTBYtZwZZ3xtN9I"
+GOOGLE_APIKEY = ""
 
 # Define the configuration for the graph
 graph_config = {

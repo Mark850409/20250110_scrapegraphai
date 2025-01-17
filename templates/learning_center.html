@@ -3,50 +3,7 @@
 {% block title %}學習中心 - AI大語言模型爬蟲工具{% endblock %}
 
 {% block extra_css %}
-<style>
-    .accordion-button:not(.collapsed) {
-        background-color: #f8f9fa;
-        color: #0d6efd;
-    }
-    .qa-image {
-        max-width: 100%;
-        height: auto;
-        margin: 1rem 0;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .section-nav {
-        position: sticky;
-        top: 20px;
-    }
-    .section-nav .nav-link {
-        padding: 0.25rem 0;
-        color: #666;
-    }
-    .section-nav .nav-link.active {
-        color: #0d6efd;
-        font-weight: bold;
-    }
-    .feature-section {
-        padding: 2rem;
-        margin-bottom: 2rem;
-        border-radius: 8px;
-        background-color: #fff;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .step-guide {
-        padding: 1rem;
-        margin: 1rem 0;
-        border-left: 3px solid #0d6efd;
-        background-color: #f8f9fa;
-    }
-    .tips-box {
-        background-color: #e9ecef;
-        padding: 1rem;
-        border-radius: 8px;
-        margin: 1rem 0;
-    }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/learning_center.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -229,31 +186,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-    // 滾動監聽，更新側邊導航激活狀態
-    document.addEventListener('DOMContentLoaded', function() {
-        const sections = document.querySelectorAll('section[id]');
-        const navLinks = document.querySelectorAll('.section-nav .nav-link');
-
-        function updateNavigation() {
-            sections.forEach(section => {
-                const sectionTop = section.offsetTop;
-                const sectionHeight = section.clientHeight;
-                const scrollPosition = window.scrollY;
-
-                if (scrollPosition >= sectionTop - 100 && scrollPosition < sectionTop + sectionHeight - 100) {
-                    navLinks.forEach(link => {
-                        link.classList.remove('active');
-                        if (link.getAttribute('href') === '#' + section.getAttribute('id')) {
-                            link.classList.add('active');
-                        }
-                    });
-                }
-            });
-        }
-
-        window.addEventListener('scroll', updateNavigation);
-        updateNavigation();
-    });
-</script>
+<script src="{{ url_for('static', filename='js/learning_center.js') }}"></script>
 {% endblock %}
