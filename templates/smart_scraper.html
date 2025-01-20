@@ -1,16 +1,28 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smart_scraper.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
-    <h2>智能爬取</h2>
+    <h2 class="mb-4">智能爬取</h2>
+
     <div class="card">
-        <div class="card-body">
-            <h5 class="card-title">
-                智能爬取
-                <a href="{{ url_for('learning_center') }}#prompt-tutorial" class="ms-2 text-decoration-none" title="查看提示詞撰寫教學">
-                    <i class="fas fa-question-circle"></i>
+        <div class="card-header d-flex align-items-center">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-code me-2"></i>
+                <h5 class="card-title mb-0">智能爬蟲</h5>
+                <a href="{{ url_for('learning_center') }}#smart-scraper" 
+                   class="btn btn-link ms-2 p-0" 
+                   data-bs-toggle="tooltip" 
+                   data-bs-placement="right" 
+                   title="查看智能爬蟲教學">
+                    <i class="fas fa-question-circle text-primary"></i>
                 </a>
-            </h5>
+            </div>
+        </div>
+        <div class="card-body">
             <form id="smart-scrape-form">
                 <div class="mb-3">
                     <label class="form-label">選擇模型類型</label>
@@ -23,12 +35,14 @@
                         <label class="btn btn-outline-primary" for="ollama1">Ollama</label>
                     </div>
                 </div>
+
                 <div class="mb-3 model-select-container">
                     <label class="form-label required-field">選擇模型</label>
                     <select class="form-select" name="model-name">
                         <option value="" selected disabled>請選擇模型...</option>
                     </select>
                 </div>
+
                 <div class="mb-3 ollama-server-field" style="display: none;">
                     <label class="form-label required-field">Ollama 伺服器網址</label>
                     <div class="input-group">
@@ -39,32 +53,35 @@
                         </button>
                     </div>
                 </div>
+
                 <div class="mb-3">
                     <label class="form-label required-field">網址</label>
                     <input type="url" class="form-control" name="url" required>
                 </div>
+
                 <div class="mb-3">
-                    <label class="form-label required-field">提示詞
-                        <a href="{{ url_for('learning_center') }}#prompt-tutorial" class="ms-1 text-decoration-none" title="查看提示詞撰寫教學">
-                            <i class="fas fa-question-circle"></i>
-                        </a>
-                    </label>
+                    <label class="form-label required-field">提示詞</label>
                     <textarea class="form-control" name="prompt" rows="3" required></textarea>
                 </div>
+
                 <div class="mb-3 api-key-field">
                     <label class="form-label required-field">API Key</label>
                     <input type="password" class="form-control" name="api-key">
                 </div>
+
                 <div class="mb-3">
                     <label class="form-label required-field">檔案名稱</label>
                     <input type="text" class="form-control" name="file-name" placeholder="檔案名稱 (選填，預設為 output.csv)">
                 </div>
-                <div class="text-center mb-5">
-                    <button type="submit" class="btn btn-success">
+
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary">
                         <i class="fas fa-spider me-2"></i>開始爬取
                     </button>
                 </div>
             </form>
+
+            <!-- 爬取結果區塊 -->
             <div class="mt-5" id="smart-scrape-result" style="display: none;">
                 <h4 class="text-center mb-4">智能爬蟲爬取結果</h4>
                 <div class="table-responsive">

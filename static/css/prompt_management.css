@@ -60,4 +60,401 @@
 
 .prompt-expand-btn.expanded i {
     transform: rotate(180deg);
+}
+
+/* 卡片樣式 */
+.card {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    background-color: #fff;
+    margin-bottom: 2rem;
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #e9ecef;
+    padding: 1rem 1.5rem;
+    min-height: 60px;
+}
+
+.card-title {
+    color: #495057;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* 表格樣式 */
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    padding: 1rem;
+    white-space: nowrap;
+}
+
+.table td {
+    padding: 1rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* 按鈕樣式 */
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+}
+
+.btn-primary:hover {
+    background-color: #0a58ca;
+    border-color: #0a58ca;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-danger:hover {
+    background-color: #bb2d3b;
+    border-color: #bb2d3b;
+}
+
+/* 狀態標籤樣式 */
+.badge {
+    padding: 0.5em 0.75em;
+    font-weight: 500;
+    border-radius: 4px;
+}
+
+.badge-success {
+    background-color: #198754;
+}
+
+.badge-danger {
+    background-color: #dc3545;
+}
+
+/* 圖標樣式 */
+.card-header .fas {
+    font-size: 1.1rem;
+    width: 20px;
+    text-align: center;
+    color: #495057;
+}
+
+/* 操作按鈕樣式 */
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.table .btn-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* 表格狀態樣式 */
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-badge.enabled {
+    color: #198754;
+    background-color: #d1e7dd;
+}
+
+.status-badge.disabled {
+    color: #dc3545;
+    background-color: #f8d7da;
+}
+
+/* 操作按鈕樣式 */
+.action-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    border-radius: 4px;
+    margin: 0 0.25rem;
+}
+
+.action-btn.edit {
+    color: #fff;
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.action-btn.delete {
+    color: #fff;
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+/* 表格列寬度調整 */
+.table th:first-child,
+.table td:first-child {
+    width: 40px;
+    text-align: center;
+}
+
+.table th:last-child,
+.table td:last-child {
+    width: 120px;
+    text-align: center;
+}
+
+/* 批量操作按鈕樣式 */
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #fff;
+}
+
+.btn-secondary:hover {
+    background-color: #5c636a;
+    border-color: #565e64;
+}
+
+/* 表格內容垂直居中 */
+.table td {
+    vertical-align: middle;
+}
+
+/* 狀態切換開關樣式 */
+.form-switch {
+    padding-left: 2.5em;
+}
+
+.form-switch .form-check-input {
+    width: 2em;
+    margin-left: -2.5em;
+}
+
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* 表格間距 */
+.mb-4 {
+    margin-bottom: 2.5rem !important;  /* 增加權重和間距 */
+}
+
+/* 按鈕組樣式 */
+.btn-group {
+    display: inline-flex !important;
+    gap: 0.5rem;
+    flex-wrap: nowrap !important;
+}
+
+/* 操作按鈕樣式 */
+.btn-group .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1;
+    flex-shrink: 0;
+    min-width: 32px;
+}
+
+/* 表格操作列樣式 */
+.table td:last-child {
+    padding: 0.75rem;
+    width: 100px;
+    min-width: 100px;
+    white-space: nowrap;
+    text-align: center;
+}
+
+/* 確保表格內容不換行 */
+.table td {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+/* 移除按鈕組的外邊距 */
+.btn-group {
+    margin: 0;
+}
+
+/* 確保按鈕圖標垂直居中 */
+.btn i {
+    vertical-align: middle;
+    line-height: 1;
+}
+
+/* 操作按鈕容器樣式 */
+.action-btns {
+    display: inline-flex;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+/* 操作按鈕樣式 */
+.action-btns .btn {
+    padding: 4px 8px;
+    font-size: 14px;
+    line-height: 1;
+    min-width: 28px;
+}
+
+/* 表格操作列樣式 */
+.table td:last-child {
+    padding: 8px;
+    width: 85px;
+    min-width: 85px;
+    text-align: center;
+}
+
+/* 確保按鈕圖標垂直居中 */
+.action-btns .btn i {
+    vertical-align: middle;
+    font-size: 14px;
+}
+
+/* 移除其他可能影響的樣式 */
+.btn-group,
+.action-buttons {
+    display: none;
+}
+
+/* 操作列樣式 */
+.operation-cell {
+    width: 100px !important;
+    min-width: 100px !important;
+    padding: 8px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+}
+
+/* 操作按鈕容器 */
+.operation-btns {
+    display: inline-flex !important;
+    gap: 4px !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+}
+
+/* 操作按鈕樣式 */
+.operation-btns .btn {
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+}
+
+/* 按鈕圖標樣式 */
+.operation-btns .btn i {
+    font-size: 14px !important;
+    line-height: 1 !important;
+}
+
+/* 移除可能影響的其他樣式 */
+.operation-btns .btn-sm {
+    margin: 0 !important;
+}
+
+/* 確保表格內容垂直居中 */
+.table td {
+    vertical-align: middle !important;
+}
+
+/* 下拉選單容器樣式 */
+.select-wrapper {
+    position: relative;
+}
+
+/* 下拉箭頭樣式 */
+.select-arrow {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    pointer-events: none;
+    font-size: 0.875rem;
+}
+
+/* 下拉選單樣式 */
+.select-wrapper select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 30px;
+    cursor: pointer;
+    background-color: #fff;
+}
+
+/* 必填欄位標記 */
+.required:after {
+    content: " *";
+    color: #dc3545;
+}
+
+/* 下拉選單hover效果 */
+.select-wrapper select:hover {
+    border-color: #80bdff;
+}
+
+/* 下拉選單focus效果 */
+.select-wrapper select:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+/* 下拉選單樣式 */
+.custom-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236c757d' d='M6 8.825L1.175 4 2.238 2.938 6 6.7l3.763-3.763L10.825 4z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 12px;
+    padding-right: 2.5rem;
+    cursor: pointer;
+}
+
+/* 必填欄位標記 */
+.required:after {
+    content: " *";
+    color: #dc3545;
+}
+
+/* 下拉選單hover效果 */
+.custom-select:hover {
+    border-color: #80bdff;
+}
+
+/* 下拉選單focus效果 */
+.custom-select:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    outline: 0;
+}
+
+/* 移除舊的下拉箭頭相關樣式 */
+.select-wrapper,
+.select-arrow {
+    display: none;
 } 

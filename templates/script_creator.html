@@ -8,18 +8,24 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>腳本生成</h2>
+    <h2 class="mb-4">腳本生成</h2>
+    
     <div class="card">
+        <div class="card-header d-flex align-items-center">
+            <i class="fas fa-code me-2"></i>
+            <h5 class="card-title mb-0">腳本設定</h5>
+            <a href="{{ url_for('learning_center') }}#prompt-tutorial" 
+               class="btn btn-link ms-2 p-0" 
+               data-bs-toggle="tooltip" 
+               data-bs-placement="right" 
+               title="查看提示詞撰寫教學">
+                <i class="fas fa-question-circle"></i>
+            </a>
+        </div>
         <div class="card-body">
-            <h5 class="card-title">
-                腳本生成
-                <a href="{{ url_for('learning_center') }}#prompt-tutorial" class="ms-2 text-decoration-none" title="查看提示詞撰寫教學">
-                    <i class="fas fa-question-circle"></i>
-                </a>
-            </h5>
             <form id="script-gen-form">
                 <div class="mb-3">
-                    <label class="form-label">選擇模型類型</label>
+                    <label class="form-label required">選擇模型類型</label>
                     <div class="btn-group w-100" role="group">
                         <input type="radio" class="btn-check" name="graph-name" value="chatgpt" id="chatgpt2" checked>
                         <label class="btn btn-outline-primary" for="chatgpt2">ChatGPT</label>
@@ -33,7 +39,7 @@
                 <!-- Ollama 伺服器設定區塊 -->
                 <div id="ollamaServerSection" style="display: none;">
                     <div class="mb-4">
-                        <label class="form-label required-field">Ollama 伺服器網址 <span class="text-danger">*</span></label>
+                        <label class="form-label required">Ollama 伺服器網址 <span class="text-danger">*</span></label>
                         <div class="input-group">
                             <input type="text" class="form-control" name="ollama-server" id="ollamaServerUrl"
                                    placeholder="例如: http://localhost:11434" 
@@ -56,58 +62,59 @@
 
                 <!-- 原有的模型選擇下拉選單 -->
                 <div class="mb-3 model-select-container">
-                    <label class="form-label required-field">選擇模型</label>
+                    <label class="form-label required">選擇模型</label>
                     <select class="form-select" name="model-name">
                         <option value="" selected disabled>請選擇模型...</option>
+                        <!-- ChatGPT 模型選項 -->
+                        <optgroup label="ChatGPT" class="chatgpt-models">
+                            <option value="gpt-4">GPT-4</option>
+                            <option value="gpt-4-1106-preview">GPT-4 Turbo</option>
+                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        </optgroup>
+                        <!-- Gemini 模型選項 -->
+                        <optgroup label="Gemini" class="gemini-models">
+                            <option value="gemini-pro">Gemini Pro</option>
+                        </optgroup>
+                        <!-- Ollama 模型選項會由 JavaScript 動態添加 -->
                     </select>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">網址 <span class="text-danger">*</span></label>
+                    <label class="form-label required">網址 <span class="text-danger">*</span></label>
                     <input type="url" class="form-control" name="url" required>
                 </div>
+
                 <div class="mb-3">
-                    <label class="form-label">提示詞 <span class="text-danger">*</span>
-                        <a href="{{ url_for('learning_center') }}#prompt-tutorial" class="ms-1 text-decoration-none" title="查看提示詞撰寫教學">
-                            <i class="fas fa-question-circle"></i>
-                        </a>
-                    </label>
-                    <textarea class="form-control" name="prompt" rows="3" required></textarea>
+                    <label class="form-label required">提示詞 <span class="text-danger">*</span></label>
+                    <textarea class="form-control" name="prompt" rows="4" required></textarea>
                 </div>
+
                 <div class="mb-3 api-key-field">
-                    <label class="form-label">API Key <span class="text-danger">*</span></label>
+                    <label class="form-label required">API Key <span class="text-danger">*</span></label>
                     <input type="password" class="form-control" name="api-key">
                 </div>
+
                 <div class="text-center">
-                    <button type="submit" class="btn btn-primary" style="min-width: 150px;">
+                    <button type="submit" class="btn btn-primary">
                         <i class="fas fa-code me-2"></i>生成腳本
+                        <span class="spinner-border spinner-border-sm d-none ms-2" role="status" aria-hidden="true"></span>
                     </button>
                 </div>
             </form>
         </div>
     </div>
-</div>
 
-<!-- 在生成的脚本对话框中添加复制按钮 -->
-<div class="modal fade" id="scriptModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">生成的腳本</h5>
-                <div class="ms-2">
-                    <span class="badge bg-secondary">執行時間：<span id="executionTime"></span> 秒</span>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <pre><code class="python" id="scriptContent"></code></pre>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="copyScript">
+    <!-- 腳本結果區塊 -->
+    <div id="scriptResult" class="card mt-4" style="display: none;">
+        <div class="card-header d-flex align-items-center">
+            <i class="fas fa-file-code me-2"></i>
+            <h5 class="card-title mb-0">生成結果</h5>
+        </div>
+        <div class="card-body">
+            <pre><code class="language-python"></code></pre>
+            <div class="text-end mt-3">
+                <button class="btn btn-primary" id="copyScript">
                     <i class="fas fa-copy me-2"></i>複製腳本
-                </button>
-                <button type="button" class="btn btn-success" id="viewRecords">
-                    <i class="fas fa-history me-2"></i>查看腳本生成紀錄
                 </button>
             </div>
         </div>

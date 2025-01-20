@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (result.isConfirmed) {
                     files.clear();
                     updateFileList();
-                    Swal.fire('已清空', '所有檔案已被清空', 'success');
+                    updateControlsVisibility();
                 }
             });
         }
@@ -99,54 +99,115 @@ document.addEventListener('DOMContentLoaded', function() {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
-    function handleFiles(fileList) {
-        Array.from(fileList).forEach(file => {
-            if (allowedTypes.includes(file.type) || 
-                file.name.endsWith('.md') || 
-                file.name.endsWith('.docx') ||
-                file.name.endsWith('.txt')) {
-                files.add(file);
-            } else {
+    function handleFiles(newFiles) {
+        Array.from(newFiles).forEach(file => {
+            // 檢查檔案類型
+            if (!allowedTypes.includes(file.type)) {
                 Swal.fire({
                     icon: 'error',
                     title: '不支援的檔案類型',
-                    text: `${file.name} 不是支援的檔案類型`
+                    text: `檔案 ${file.name} 的類型不被支援`
                 });
+                return;
+            }
+
+            // 檢查檔案是否已存在（使用檔名作為唯一標識）
+            const isDuplicate = Array.from(files).some(existingFile => 
+                existingFile.name === file.name
+            );
+
+            if (isDuplicate) {
+                // 如果檔案已存在，詢問用戶是否要替換
+                Swal.fire({
+                    title: '檔案已存在',
+                    text: `是否要替換已存在的檔案 "${file.name}"？`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: '是，替換檔案',
+                    cancelButtonText: '取消'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // 移除舊檔案
+                        files.forEach(existingFile => {
+                            if (existingFile.name === file.name) {
+                                files.delete(existingFile);
+                            }
+                        });
+                        // 添加新檔案
+                        files.add(file);
+                        updateFileList();
+                        updateControlsVisibility();
+                    }
+                });
+            } else {
+                // 如果檔案不存在，直接添加
+                files.add(file);
+                updateFileList();
+                updateControlsVisibility();
             }
         });
-        updateFileList();
+
+        // 更新清空按鈕狀態
+        clearButton.disabled = files.size === 0;
     }
 
+    // 設置預設視圖為卡片視圖
+    fileList.className = 'file-list grid-view';
+
+    // 添加視圖切換功能
+    const viewToggleButtons = document.querySelectorAll('.view-toggle .btn');
+    
+    viewToggleButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // 更新按鈕狀態
+            viewToggleButtons.forEach(btn => {
+                btn.classList.remove('active');
+                btn.setAttribute('aria-pressed', 'false');
+            });
+            button.classList.add('active');
+            button.setAttribute('aria-pressed', 'true');
+            
+            // 更新視圖
+            const viewType = button.dataset.view;
+            fileList.className = `file-list ${viewType}-view`;
+        });
+    });
+
+    // 修改 updateFileList 函數
     function updateFileList() {
         fileList.innerHTML = '';
         files.forEach(file => {
-            const fileDiv = document.createElement('div');
-            fileDiv.className = 'file-item';
-            fileDiv.innerHTML = `
-                <i class="fas ${getFileIcon(file.name)}"></i>
-                <span class="file-name">${file.name}</span>
-                <span class="file-size">${formatFileSize(file.size)}</span>
-                <button type="button" class="btn btn-link btn-remove" data-filename="${file.name}">
-                    <i class="fas fa-times"></i>
-                </button>
-            `;
-            fileList.appendChild(fileDiv);
-        });
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            
+            // 根據檔案類型選擇圖標
+            let fileIcon = 'fa-file-alt'; // 預設圖標
+            if (file.type.includes('pdf')) {
+                fileIcon = 'fa-file-pdf';
+            } else if (file.type.includes('excel') || file.type.includes('spreadsheetml')) {
+                fileIcon = 'fa-file-excel';
+            } else if (file.type.includes('word') || file.type.includes('document')) {
+                fileIcon = 'fa-file-word';
+            }
 
-        // 根據檔案數量啟用/禁用清空按鈕
-        clearButton.disabled = files.size === 0;
-        
-        // 為每個移除按鈕添加事件監聽器
-        document.querySelectorAll('.btn-remove').forEach(button => {
-            button.addEventListener('click', () => {
-                const fileName = button.getAttribute('data-filename');
-                files.forEach(file => {
-                    if (file.name === fileName) {
-                        files.delete(file);
-                    }
-                });
+            fileItem.innerHTML = `
+                <i class="fas ${fileIcon} file-icon"></i>
+                <span class="file-name" title="${file.name}">${file.name}</span>
+                <span class="file-size">${formatFileSize(file.size)}</span>
+                <i class="fas fa-times remove-file" title="移除檔案"></i>
+            `;
+
+            // 添加移除檔案的事件監聽
+            const removeButton = fileItem.querySelector('.remove-file');
+            removeButton.addEventListener('click', () => {
+                files.delete(file);
                 updateFileList();
+                updateControlsVisibility();
             });
+
+            fileList.appendChild(fileItem);
         });
     }
 
@@ -315,18 +376,33 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const data = await response.json();
             if (data && data.files && data.files.length > 0) {
-                // 將檔案資料轉換為所需格式
+                // 修改時間格式化函數，轉換為 GMT+8
+                function formatDateTime(dateTimeStr) {
+                    const date = new Date(dateTimeStr);
+                    // 調整為 GMT+8
+                    date.setHours(date.getHours() + 8);
+                    return date.toLocaleString('zh-TW', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                    });
+                }
+
+                // 修改資料轉換部分
                 currentData = data.files.map(fileName => {
                     // 從檔案名稱解析時間
                     const [date, time] = fileName.split('_').slice(0, 2);
                     const formattedDate = date.replace(/-/g, '-');
                     const formattedTime = time.replace(/-/g, ':');
-                    const uploadTime = `${formattedDate} ${formattedTime}`;
+                    const uploadTime = formatDateTime(`${formattedDate} ${formattedTime}`);
                     
                     return {
                         file_name: fileName,
                         upload_time: uploadTime,
-                        file_size: '-',
                         status: '已上傳'
                     };
                 });
@@ -350,7 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
             Swal.fire({
                 icon: 'error',
                 title: '查詢失敗',
-                text: '連線發生錯誤，請確認知識庫網址是否正確'
+                html: '連線發生錯誤，請確認知識庫網址是否正確<br><br>如確認無誤，請檢查是否有上傳檔案!!!',
             });
             tableContainer.style.display = 'none';
         }
@@ -388,10 +464,22 @@ document.addEventListener('DOMContentLoaded', function() {
             tr.innerHTML = `
                 <td>${item.file_name}</td>
                 <td>${item.upload_time}</td>
-                <td>${item.file_size || '-'}</td>
                 <td class="status-uploaded">${item.status}</td>
+                <td class="text-center">
+                    <button class="btn btn-link btn-sm p-0 delete-file" 
+                            data-filename="${item.file_name}" 
+                            title="刪除檔案">
+                        <i class="fas fa-trash-alt text-danger"></i>
+                    </button>
+                </td>
             `;
             tbody.appendChild(tr);
+            
+            // 添加刪除按鈕事件監聽
+            const deleteBtn = tr.querySelector('.delete-file');
+            deleteBtn.addEventListener('click', async () => {
+                await handleDeleteFile(item.file_name);
+            });
         });
         
         // 更新分頁
@@ -441,4 +529,65 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         pagination.appendChild(nextLi);
     }
+
+    // 添加刪除檔案處理函數
+    async function handleDeleteFile(fileName) {
+        try {
+            const result = await Swal.fire({
+                title: '確定要刪除檔案？',
+                text: `確定要刪除 ${fileName} 嗎？`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: '確定刪除',
+                cancelButtonText: '取消'
+            });
+
+            if (result.isConfirmed) {
+                const url = document.getElementById('searchKnowledgeBaseUrl').value.trim();
+                const processId = document.getElementById('searchProcessId').value.trim();
+                
+                const response = await fetch(`${url}/api/v1/files/delete/${processId}/${fileName}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // 從當前數據中移除該檔案
+                currentData = currentData.filter(item => item.file_name !== fileName);
+                filteredData = filteredData.filter(item => item.file_name !== fileName);
+                
+                // 更新表格
+                updateTable();
+
+                Swal.fire(
+                    '刪除成功',
+                    '檔案已成功刪除',
+                    'success'
+                );
+            }
+        } catch (error) {
+            console.error('Delete failed:', error);
+            Swal.fire({
+                icon: 'error',
+                title: '刪除失敗',
+                text: '刪除檔案時發生錯誤，請稍後再試'
+            });
+        }
+    }
+
+    // 添加控制元素顯示的函數
+    function updateControlsVisibility() {
+        const controlsContainer = document.getElementById('fileControlsContainer');
+        controlsContainer.style.display = files.size > 0 ? 'block' : 'none';
+    }
+
+    // 初始化時設置控制元素的顯示狀態
+    updateControlsVisibility();
 });

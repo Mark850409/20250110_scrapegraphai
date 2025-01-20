@@ -8,28 +8,19 @@
 
 {% block content %}
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="mb-0">腳本生成紀錄</h2>
-        <button id="clearRecordsBtn" class="btn btn-danger">
-            <i class="fas fa-trash-alt me-1"></i>清除所有紀錄
-        </button>
-    </div>
-
-    <div class="alert alert-info mb-4" role="alert">
-        <h5 class="alert-heading mb-2">
-            <i class="fas fa-info-circle me-2"></i>關於腳本生成紀錄
-        </h5>
-        <p class="mb-2">在這裡，您可以查看所有已生成的爬蟲腳本紀錄。每個紀錄包含：</p>
-        <ul class="mb-0">
-            <li>生成時間 - 腳本產生的確切時間</li>
-            <li>目標網址 - 爬蟲的目標網站</li>
-            <li>使用的提示詞 - 用於生成腳本的提示</li>
-            <li>處理時間 - 腳本生成所需時間</li>
-        </ul>
-    </div>
+    <h2 class="mb-4">腳本生成紀錄</h2>
 
     <div class="card">
-        <div class="card-body p-0">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-history me-2"></i>
+                <h5 class="card-title mb-0">生成紀錄</h5>
+            </div>
+            <button id="clearRecordsBtn" class="btn btn-danger">
+                <i class="fas fa-trash-alt me-2"></i>清除所有紀錄
+            </button>
+        </div>
+        <div class="card-body">
             <!-- 載入指示器 -->
             <div id="loadingIndicator" class="text-center py-4" style="display: none;">
                 <div class="spinner-border text-primary" role="status">
@@ -39,9 +30,15 @@
             </div>
 
             <!-- 無記錄提示 -->
-            <div id="noRecordsMsg" class="alert alert-warning m-3" style="display: none;">
-                <i class="fas fa-exclamation-circle me-2"></i>
-                目前沒有任何腳本生成紀錄
+            <div id="noRecordsMsg" class="empty-state text-center py-5" style="display: none;">
+                <div class="empty-state-icon mb-4">
+                    <i class="fas fa-code-branch"></i>
+                </div>
+                <h4 class="text-muted mb-3">尚無腳本生成紀錄</h4>
+                <p class="text-muted mb-4">提示詞可以幫助AI更準確地理解並回答使用者的問題</p>
+                <a href="{{ url_for('script_creator') }}" class="btn btn-primary">
+                    <i class="fas fa-code me-2"></i>開始生成腳本
+                </a>
             </div>
 
             <!-- 記錄表格 -->
@@ -49,11 +46,11 @@
                 <table id="recordsTable" class="table table-hover mb-0" style="display: none;">
                     <thead>
                         <tr>
-                            <th style="width: 20%;">生成時間</th>
-                            <th style="width: 35%;">網址</th>
-                            <th style="width: 25%;">提示詞</th>
-                            <th style="width: 10%;" class="text-center">耗時</th>
-                            <th style="width: 10%;" class="text-center">操作</th>
+                            <th>生成時間</th>
+                            <th>網址</th>
+                            <th>提示詞</th>
+                            <th class="text-center">耗時</th>
+                            <th class="text-center">操作</th>
                         </tr>
                     </thead>
                     <tbody>

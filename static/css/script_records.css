@@ -1,7 +1,32 @@
 .empty-state {
-    padding: 2rem;
-    background-color: #f8f9fa;
+    padding: 3rem;
     border-radius: 8px;
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    color: #6c757d;
+    opacity: 0.7;
+}
+
+.empty-state-icon .fas {
+    width: auto;
+    height: auto;
+}
+
+.empty-state h4 {
+    font-weight: 500;
+}
+
+.empty-state p {
+    color: #6c757d;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.empty-state .btn {
+    padding: 0.5rem 1.5rem;
+    font-weight: 500;
 }
 
 .swal-wide {
@@ -46,8 +71,27 @@ pre code {
 }
 
 .card {
-    border: 1px solid rgba(0,0,0,.125);
-    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    background-color: #fff;
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #e9ecef;
+    padding: 1rem 1.5rem;
+}
+
+.card-title {
+    color: #495057;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.card-body {
+    padding: 1.5rem;
 }
 
 .copy-script-btn:hover {
@@ -187,12 +231,13 @@ pre code {
     border-bottom: 2px solid #dee2e6;
     font-weight: 600;
     white-space: nowrap;
+    padding: 1rem;
 }
 
 .table td {
     border-bottom: 1px solid #dee2e6;
     vertical-align: middle;
-    padding: 0.75rem;
+    padding: 1rem;
 }
 
 .table tr:last-child td {
@@ -232,9 +277,4 @@ pre code {
 
 .alert ul li:last-child {
     margin-bottom: 0;
-}
-
-.card {
-    border: 1px solid rgba(0,0,0,.125);
-    box-shadow: 0 1px 3px rgba(0,0,0,.1);
 }

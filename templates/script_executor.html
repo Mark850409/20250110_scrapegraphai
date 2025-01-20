@@ -1,25 +1,52 @@
 {% extends "base.html" %}
 
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<link href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/script_executor.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
+    <h2 class="mb-4">執行腳本</h2>
 
-    <h1 class="mb-4">執行腳本</h1>
-    
-    <form id="script-executor-form">
-        <div class="mb-3">
-            <label for="script-input" class="form-label">輸入腳本</label>
-            <textarea class="form-control" id="script-input" rows="10" placeholder="請輸入 Python 腳本"></textarea>
+    <div class="card">
+        <div class="card-header d-flex align-items-center">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-code me-2"></i>
+                <h5 class="card-title mb-0">執行腳本</h5>
+                <a href="{{ url_for('learning_center') }}#script-executor" 
+                   class="btn btn-link ms-2 p-0" 
+                   data-bs-toggle="tooltip" 
+                   data-bs-placement="right" 
+                   title="查看執行腳本教學">
+                    <i class="fas fa-question-circle text-primary"></i>
+                </a>
+            </div>
         </div>
+        <div class="card-body">
+            <form id="script-executor-form">
+                <div class="mb-3">
+                    <label for="script-input" class="form-label required">輸入腳本</label>
+                    <textarea class="form-control" id="script-input" name="script-input" 
+                              rows="10" placeholder="請輸入 Python 腳本"></textarea>
+                </div>
 
-        <div class="mb-3">
-            <label for="csv-name" class="form-label">CSV檔案名稱</label>
-            <input type="text" class="form-control" id="csv-name" placeholder="請輸入檔案名稱 (不需要輸入副檔名)">
+                <div class="mb-3">
+                    <label for="csv-name" class="form-label">CSV檔案名稱</label>
+                    <input type="text" class="form-control" id="csv-name" name="csv-name"
+                           placeholder="請輸入檔案名稱 (不需要輸入副檔名)">
+                </div>
+
+                <div class="text-center">
+                    <button type="submit" class="btn btn-primary" id="execute-button">
+                        <i class="fas fa-play me-2"></i>執行腳本
+                    </button>
+                </div>
+            </form>
         </div>
-
-        <button type="submit" class="btn btn-primary" id="submit-button">
-            <i class="fas fa-play"></i> 執行腳本
-        </button>
-    </form>
+    </div>
 
     <div id="table-container" class="mt-4" style="display: none;">
         <h3 class="text-center mb-4">腳本執行完畢結果</h3>
@@ -28,12 +55,6 @@
         </div>
     </div>
 </div>
-
-{% block extra_css %}
-<!-- DataTables CSS -->
-<link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-<link href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css" rel="stylesheet">
-<script src="{{ url_for('static', filename='css/script_executor.css') }}"></script>
 {% endblock %}
 
 {% block extra_js %}
@@ -47,6 +68,4 @@
 
 <!-- Custom JS -->
 <script src="{{ url_for('static', filename='js/script_executor.js') }}"></script>
-{% endblock %}
-
 {% endblock %}

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file,Response
+from flask import Flask, render_template, request, jsonify, send_file, Response, make_response
 import os
 import requests
 import subprocess
@@ -338,7 +338,13 @@ def script_creator():
 
 @app.route('/script-records')
 def script_records():
-    return render_template('script_records.html', breadcrumb_title='腳本生成紀錄')
+    alert = {
+        'type': 'info',
+        'icon': 'fas fa-info-circle',
+        'title': '使用說明',
+        'message': '在這裡您可以查看所有已生成的腳本紀錄，包括腳本內容、執行時間、執行結果等。'
+    }
+    return render_template('script_records.html', breadcrumb_title='腳本生成紀錄', alert=alert)
 
 
 @app.route('/knowledge_base_manage')
@@ -380,36 +386,7 @@ def pricing():
     }
     return render_template('pricing.html', breadcrumb_title='定價', alert=alert)
 
-@app.route('/api/chat', methods=['POST'])
-def chat():
-    try:
-        data = request.json
-        message = data.get('message')
-        
-        # 獲取相關提示詞
-        conn = sqlite3.connect('prompts.db')
-        c = conn.cursor()
-        c.execute('SELECT content FROM prompts WHERE category = ? LIMIT 1', ('general',))
-        prompt_row = c.fetchone()
-        conn.close()
-        
-        if prompt_row:
-            # 將提示詞與用戶訊息組合
-            full_prompt = f"{prompt_row[0]}\n\nUser: {message}"
-        else:
-            full_prompt = message
-        
-        # 調用 Gemini API
-        response = model.generate_content(full_prompt)
-        
-        return jsonify({
-            'response': response.text
-        })
-    except Exception as e:
-        app.logger.error(f"Chat error: {str(e)}")
-        return jsonify({
-            'error': str(e)
-        }), 500
+
 
 def get_all_script_records():
     """
@@ -700,92 +677,39 @@ def get_prompts():
         if 'conn' in locals():
             conn.close()
 
+
 @app.route('/api/prompts', methods=['POST'])
 def create_prompt():
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({'success': False, 'message': '無效的請求數據'}), 400
-            
-        # 驗證必要欄位
-        required_fields = ['name', 'content', 'category', 'sort_order']
-        if not all(field in data for field in required_fields):
-            return jsonify({
-                'success': False, 
-                'message': f'缺少必要欄位: {", ".join(required_fields)}'
-            }), 400
-
+        name = data.get('name')
+        category = data.get('category')
+        content = data.get('content')
+        sort_order = data.get('sort_order', 1)
+        status = data.get('status', True)  # 預設為啟用
+        
         conn = sqlite3.connect('database.db')
         c = conn.cursor()
-        
         try:
-            # 檢查排序值是否重複
-            c.execute('SELECT 1 FROM prompts WHERE sort_order = ?', (data['sort_order'],))
-            if c.fetchone():
-                return jsonify({
-                    'success': False,
-                    'message': '此排序值已存在，請使用其他值'
-                }), 400
-            
-            # 檢查是否為第一筆資料
-            c.execute('SELECT COUNT(*) FROM prompts')
-            is_first_record = c.fetchone()[0] == 0
-                
-            # 插入新提示詞
-            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             c.execute('''
-                INSERT INTO prompts (name, category, content, sort_order, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (
-                data['name'],
-                data['category'],
-                data['content'],
-                data['sort_order'],
-                1 if is_first_record else 0,  # 第一筆資料預設啟用，其他預設停用
-                current_time
-            ))
-            
+                INSERT INTO prompts (name, category, content, sort_order, status)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (name, category, content, sort_order, status))
             conn.commit()
             
-            # 獲取新插入的記錄
-            c.execute('''
-                SELECT id, name, category, content, sort_order, status, created_at
-                FROM prompts WHERE id = last_insert_rowid()
-            ''')
-            
-            row = c.fetchone()
-            
-            if row:
-                return jsonify({
-                    'success': True,
-                    'message': '新增成功',
-                    'data': {
-                        'id': row[0],
-                        'name': row[1],
-                        'category': row[2],
-                        'content': row[3],
-                        'sort_order': row[4],
-                        'status': row[5],
-                        'created_at': row[6]
-                    }
-                })
-            
-            return jsonify({'success': False, 'message': '新增失敗'}), 500
-            
-        except sqlite3.Error as e:
             return jsonify({
-                'success': False,
-                'message': f'資料庫錯誤: {str(e)}'
-            }), 500
+                'success': True,
+                'message': '新增成功'
+            })
+        finally:
+            c.close()
+            conn.close()
             
     except Exception as e:
         return jsonify({
             'success': False,
-            'message': f'系統錯誤: {str(e)}'
+            'message': str(e)
         }), 500
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 @app.route('/api/prompts/<int:prompt_id>', methods=['GET'])
 def get_prompt(prompt_id):
@@ -1476,45 +1400,37 @@ def check_prompt_sort_order():
         if 'conn' in locals():
             conn.close()
 
-@app.route('/api/prompts/<int:prompt_id>/status', methods=['PUT'])
-def update_prompt_status(prompt_id):
+@app.route('/api/prompts/<int:id>/status', methods=['PUT'])
+def update_prompt_status(id):
     try:
         data = request.get_json()
-        new_status = data.get('status', False)
+        status = data.get('status', False)
         
+         
         conn = sqlite3.connect('database.db')
-        c = conn.cursor()
-        
+        cursor = conn.cursor()
         try:
-            if new_status:
-                # 如果要啟用，先將所有提示詞設為停用
-                c.execute('UPDATE prompts SET status = 0')
-            
-            # 更新指定提示詞的狀態
-            c.execute('UPDATE prompts SET status = ? WHERE id = ?', 
-                     (1 if new_status else 0, prompt_id))
-            
+            # 直接更新指定提示詞的狀態
+            cursor.execute('''
+                UPDATE prompts 
+                SET status = ? 
+                WHERE id = ?
+            ''', (status, id))
             conn.commit()
             
             return jsonify({
                 'success': True,
                 'message': '狀態更新成功'
             })
-            
-        except sqlite3.Error as e:
-            return jsonify({
-                'success': False,
-                'message': f'資料庫錯誤: {str(e)}'
-            }), 500
+        finally:
+            cursor.close()
+            conn.close()
             
     except Exception as e:
         return jsonify({
             'success': False,
-            'message': f'系統錯誤: {str(e)}'
+            'message': str(e)
         }), 500
-    finally:
-        if 'conn' in locals():
-            conn.close()
 
 # 添加 ChatGPT 腳本生成函數
 def generate_script_with_chatgpt(url, prompt, api_key):
@@ -2160,6 +2076,57 @@ def delete_knowledge_base():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/prompts/system', methods=['GET'])
+def get_system_prompt():
+    try:
+        conn = sqlite3.connect('database.db')
+        c = conn.cursor()
+        
+        # 獲取聊天智能客服分類中最新的啟用提示詞
+        c.execute('''
+            SELECT content 
+            FROM prompts 
+            WHERE category = 'chat' 
+            AND status = 1 
+            ORDER BY created_at DESC 
+            LIMIT 1
+        ''')
+        
+        result = c.fetchone()
+        print(result)
+        
+        # 添加緩存控制頭
+        response = make_response(jsonify({
+            'success': True,
+            'content': result[0] if result else ''
+        }))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+    finally:
+        if conn:
+            conn.close()
+
+@app.route('/api/config/chat')
+def get_chat_config():
+    try:
+        return jsonify({
+            'LANGFLOW_API_URL': os.getenv('LANGFLOW_API_URL'),
+            'LANGFLOW_API_TOKEN': os.getenv('LANGFLOW_API_TOKEN'),
+            'LANGFLOW_API_KEY': os.getenv('LANGFLOW_API_KEY'),
+            'OPENAI_API_KEY': os.getenv('OPENAI_API_KEY')
+        })
+    except Exception as e:
+        return jsonify({
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

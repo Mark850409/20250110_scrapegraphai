@@ -209,3 +209,100 @@ body {
 .feature-card:nth-child(6) .feature-icon-wrapper {
     background: rgba(108, 117, 125, 0.1);
 }
+
+/* Alert 卡片樣式 */
+.alert {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    background-color: #fff;
+    padding: 0;
+    margin-bottom: 1.5rem;
+}
+
+/* Alert Header 樣式 */
+.alert .alert-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    padding: 1rem 1.5rem;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+}
+
+.alert .alert-header i {
+    font-size: 1.1rem;
+    width: 20px;
+    text-align: center;
+    margin-right: 0.75rem;
+}
+
+.alert .alert-header .alert-title {
+    color: #495057;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+/* Alert Body 樣式 */
+.alert .alert-body {
+    padding: 1.5rem;
+    color: #495057;
+}
+
+/* Alert 類型樣式 */
+.alert-info {
+    border-color: #b8daff;
+}
+
+.alert-info .alert-header {
+    background-color: #cce5ff;
+    border-bottom-color: #b8daff;
+}
+
+.alert-info .alert-header i,
+.alert-info .alert-header .alert-title {
+    color: #004085;
+}
+
+.alert-warning {
+    border-color: #ffeeba;
+}
+
+.alert-warning .alert-header {
+    background-color: #fff3cd;
+    border-bottom-color: #ffeeba;
+}
+
+.alert-warning .alert-header i,
+.alert-warning .alert-header .alert-title {
+    color: #856404;
+}
+
+.alert-danger {
+    border-color: #f5c6cb;
+}
+
+.alert-danger .alert-header {
+    background-color: #f8d7da;
+    border-bottom-color: #f5c6cb;
+}
+
+.alert-danger .alert-header i,
+.alert-danger .alert-header .alert-title {
+    color: #721c24;
+}
+
+.alert-success {
+    border-color: #c3e6cb;
+}
+
+.alert-success .alert-header {
+    background-color: #d4edda;
+    border-bottom-color: #c3e6cb;
+}
+
+.alert-success .alert-header i,
+.alert-success .alert-header .alert-title {
+    color: #155724;
+}

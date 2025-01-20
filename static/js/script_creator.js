@@ -55,30 +55,32 @@ document.addEventListener('DOMContentLoaded', function() {
             ollamaServerSection.style.display = 'none';
             ollamaModelSection.style.display = 'none';
             modelSelect.parentElement.style.display = 'block';
-            updateModelOptions(modelSelect, modelType);
+            updateModelOptions(modelType);
         }
     }
 
     // 更新模型選項
-    function updateModelOptions(select, modelType) {
-        if (!select) return;  // 添加空值检查
+    function updateModelOptions(modelType) {
+        const modelSelect = document.querySelector('select[name="model-name"]');
+        const chatgptModels = modelSelect.querySelector('.chatgpt-models');
+        const geminiModels = modelSelect.querySelector('.gemini-models');
         
-        select.innerHTML = '';
+        // 先隱藏所有模型組
+        if (chatgptModels) chatgptModels.style.display = 'none';
+        if (geminiModels) geminiModels.style.display = 'none';
+        
+        // 根據選擇的模型類型顯示對應的模型組
         switch(modelType) {
             case 'chatgpt':
-                const chatgptOptions = ['gpt-4', 'gpt-3.5-turbo'];
-                chatgptOptions.forEach(option => {
-                    const opt = document.createElement('option');
-                    opt.value = option;
-                    opt.textContent = option;
-                    select.appendChild(opt);
-                });
+                if (chatgptModels) chatgptModels.style.display = '';
+                modelSelect.value = ''; // 重置為預設選項
                 break;
             case 'gemini':
-                const opt = document.createElement('option');
-                opt.value = 'gemini-pro';
-                opt.textContent = 'gemini-pro';
-                select.appendChild(opt);
+                if (geminiModels) geminiModels.style.display = '';
+                modelSelect.value = ''; // 重置為預設選項
+                break;
+            case 'ollama':
+                // Ollama 的處理邏輯保持不變
                 break;
         }
     }

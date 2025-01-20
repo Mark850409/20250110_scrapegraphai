@@ -2,37 +2,39 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2 class="page-title">聊天機器人管理</h2>
+    <h2 class="mb-4">聊天機器人管理</h2>
     
     <!-- 快速提問管理區塊 -->
-    <div class="card management-card mb-4">
+    <div class="card mb-4">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">快速提問管理</h5>
-            <div class="header-buttons">
-                <button class="btn btn-secondary me-2" id="batchDeleteBtn">
-                    <i class="fas fa-trash-alt me-1"></i>批量刪除
+            <div class="d-flex align-items-center">
+                <i class="fas fa-comments me-2"></i>
+                <h5 class="card-title mb-0">快速提問管理</h5>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-secondary" id="batchDeleteBtn">
+                    <i class="fas fa-trash-alt me-2"></i>批量刪除
                 </button>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addQuestionModal">
-                    <i class="fas fa-plus me-1"></i>新增快速提問
+                    <i class="fas fa-plus me-2"></i>新增快速提問
                 </button>
             </div>
         </div>
         <div class="card-body">
-            <!-- 表格區域 -->
-            <div class="table-responsive" id="questionsTableWrapper">
+            <div class="table-responsive">
                 <table class="table">
                     <thead>
                         <tr>
-                            <th><input type="checkbox" id="selectAllQuestions"></th>
+                            <th style="width: 40px;"><input type="checkbox" id="selectAllQuestions"></th>
                             <th>顯示文字</th>
-                            <th>排序</th>
-                            <th style="width: 120px;">狀態</th>
-                            <th>建立時間</th>
-                            <th>操作</th>
+                            <th style="width: 100px;">排序</th>
+                            <th style="width: 100px;">狀態</th>
+                            <th style="width: 180px;">建立時間</th>
+                            <th style="width: 120px;">操作</th>
                         </tr>
                     </thead>
                     <tbody id="questionsList">
-                        <!-- 預設項目會由 JavaScript 動態生成 -->
+                        <!-- 由 JavaScript 動態生成 -->
                     </tbody>
                 </table>
             </div>
@@ -40,35 +42,37 @@
     </div>
 
     <!-- 提示詞管理區塊 -->
-    <div class="card management-card">
+    <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">提示詞管理</h5>
-            <div class="header-buttons">
-                <button class="btn btn-secondary me-2" onclick="batchDeletePrompts()">
-                    <i class="fas fa-trash-alt me-1"></i>批量刪除
+            <div class="d-flex align-items-center">
+                <i class="fas fa-lightbulb me-2"></i>
+                <h5 class="card-title mb-0">提示詞管理</h5>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-secondary" onclick="batchDeletePrompts()">
+                    <i class="fas fa-trash-alt me-2"></i>批量刪除
                 </button>
                 <button class="btn btn-primary" onclick="openAddPromptModal()">
-                    <i class="fas fa-plus me-1"></i>新增提示詞
+                    <i class="fas fa-plus me-2"></i>新增提示詞
                 </button>
             </div>
         </div>
         <div class="card-body">
-            <!-- 表格區域 -->
-            <div class="table-responsive" id="promptsTableWrapper">
+            <div class="table-responsive">
                 <table class="table">
                     <thead>
                         <tr>
-                            <th><input type="checkbox" id="select-all"></th>
+                            <th style="width: 40px;"><input type="checkbox" id="select-all"></th>
                             <th>顯示文字</th>
-                            <th>分類名稱</th>
-                            <th>排序</th>
-                            <th style="width: 120px;">狀態</th>
-                            <th>建立時間</th>
-                            <th>操作</th>
+                            <th style="width: 120px;">分類名稱</th>
+                            <th style="width: 100px;">排序</th>
+                            <th style="width: 100px;">狀態</th>
+                            <th style="width: 180px;">建立時間</th>
+                            <th style="width: 120px;">操作</th>
                         </tr>
                     </thead>
                     <tbody id="prompts-table-body">
-                        <!-- 內容將由 JavaScript 動態生成 -->
+                        <!-- 由 JavaScript 動態生成 -->
                     </tbody>
                 </table>
             </div>
@@ -125,11 +129,11 @@
                         <input type="text" class="form-control" id="promptName" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">分類</label>
-                        <select class="form-control" id="promptCategory">
-                            <option value="general">一般對話</option>
-                            <option value="analysis">數據分析</option>
-                            <option value="tutorial">教學指導</option>
+                        <label class="form-label required">分類</label>
+                        <select class="form-control custom-select" id="promptCategory" required>
+                            <option value="" disabled selected>請選擇提示詞分類</option>
+                            <option value="chat">聊天智能客服</option>
+                            <option value="script">腳本生成使用</option>
                         </select>
                     </div>
                     <div class="mb-3">

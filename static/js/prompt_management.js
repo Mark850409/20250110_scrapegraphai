@@ -343,16 +343,16 @@ async function loadQuickQuestions() {
                     </div>
                 </td>
                 <td>${createdAt}</td>
-                <td>
-                    <button class="btn btn-sm btn-primary me-2" 
-                            onclick="editQuestion(${question.id})">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" 
-                            onclick="deleteQuestion(${question.id})"
-                            ${isDefault ? 'disabled style="opacity: 0.5;"' : ''}>
-                        <i class="fas fa-trash"></i>
-                    </button>
+                <td class="operation-cell">
+                    <div class="operation-btns">
+                        <button class="btn btn-primary btn-sm" onclick="editQuestion(${question.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteQuestion(${question.id})"
+                                ${isDefault ? 'disabled style="opacity: 0.5;"' : ''}>
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
@@ -607,83 +607,58 @@ async function batchDeletePrompts() {
 // 保存提示詞
 async function savePrompt() {
     try {
-        const name = document.getElementById('promptName').value.trim();
-        const category = document.getElementById('promptCategory').value.trim();
-        const content = document.getElementById('promptContent').value.trim();
-        const order = parseInt(document.getElementById('promptOrder').value);
+        const name = document.getElementById('promptName').value;
+        const category = document.getElementById('promptCategory').value;
+        const order = document.getElementById('promptOrder').value;
+        const content = document.getElementById('promptContent').value;
 
-        // 驗證必填欄位
-        if (!name || !category || !content || !order) {
-            await Swal.fire('提示', '請填寫所有必填欄位', 'warning');
-            return;
+        if (!name || !category || !order || !content) {
+            throw new Error('請填寫所有必填欄位');
         }
 
-        // 驗證排序值
-        if (order < 1) {
-            await Swal.fire('提示', '排序值不能小於1', 'warning');
-            return;
+        // 根據是否為編輯模式設置不同的數據
+        const promptData = {
+            name: name,
+            category: category,
+            sort_order: parseInt(order),
+            content: content
+        };
+
+        // 只在新增時設置狀態為啟用
+        if (!currentEditId) {
+            promptData.status = true;
         }
 
-        // 檢查排序值是否重複
-        if (!isEditing) {
-            try {
-                const checkResponse = await fetch(`/api/prompts/check-sort-order?order=${order}`);
-                if (checkResponse.ok) {
-                    const checkData = await checkResponse.json();
-                    if (checkData.exists) {
-                        await Swal.fire('提示', '此排序值已存在，請使用其他值', 'warning');
-                        return;
-                    }
-                }
-            } catch (error) {
-                console.error('Error checking sort order:', error);
-                await Swal.fire('錯誤', '檢查排序值時發生錯誤', 'error');
-                return;
-            }
-        }
+        const url = currentEditId ? `/api/prompts/${currentEditId}` : '/api/prompts';
+        const method = currentEditId ? 'PUT' : 'POST';
 
-        const url = isEditing ? `/api/prompts/${currentEditId}` : '/api/prompts';
-        const method = isEditing ? 'PUT' : 'POST';
-
-        const saveResponse = await fetch(url, {
+        const response = await fetch(url, {
             method: method,
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                name: name,
-                category: category,
-                content: content,
-                sort_order: order,
-                status: false
-            })
+            body: JSON.stringify(promptData)
         });
 
-        const data = await saveResponse.json();
+        const data = await response.json();
 
-        if (!saveResponse.ok || !data.success) {
+        if (!response.ok || !data.success) {
             throw new Error(data.message || '保存失敗');
         }
 
-        // 關閉模態框
-        const modal = document.getElementById('addPromptModal');
-        const modalInstance = bootstrap.Modal.getInstance(modal);
-        if (modalInstance) {
-            modalInstance.hide();
-        }
-
-        // 重置表單
-        resetPromptForm();
-        
-        // 顯示成功消息並重新載入頁面
         await Swal.fire({
             title: '成功',
-            text: isEditing ? '更新成功' : '新增成功',
+            text: currentEditId ? '更新成功' : '新增成功',
             icon: 'success',
             confirmButtonText: '確定'
         });
-        
-        window.location.reload();
+
+        // 關閉模態框
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addPromptModal'));
+        modal.hide();
+
+        // 重新載入列表
+        await loadPromptsList();
     } catch (error) {
         console.error('Error:', error);
         await Swal.fire({
@@ -697,14 +672,8 @@ async function savePrompt() {
 
 // 重置提示詞表單
 function resetPromptForm() {
-    const form = document.getElementById('promptForm');
-    if (form) {
-        form.reset();
-    }
-    document.getElementById('promptName').value = '';
-    document.getElementById('promptCategory').value = 'general';
-    document.getElementById('promptOrder').value = '1';
-    document.getElementById('promptContent').value = '';
+    document.getElementById('promptForm').reset();
+    document.getElementById('promptCategory').value = ''; // 設置為預設選項
     currentEditId = null;
     isEditing = false;
 }
@@ -782,35 +751,12 @@ async function loadQuestionsList() {
 async function loadPromptsList() {
     try {
         const response = await fetch('/api/prompts');
-        const prompts = await response.json();
+        if (!response.ok) throw new Error('載入失敗');
         
+        const prompts = await response.json();
         const tbody = document.getElementById('prompts-table-body');
         tbody.innerHTML = '';
-
-        // 檢查是否有資料
-        if (!prompts || prompts.length === 0) {
-            const emptyMessage = document.createElement('tr');
-            emptyMessage.className = 'empty-message';
-            emptyMessage.innerHTML = `
-                <td colspan="7">
-                    <div class="text-center py-4">
-                        <i class="fas fa-lightbulb fa-3x mb-3 text-muted"></i>
-                        <h4>尚未建立提示詞</h4>
-                        <p class="text-muted">提示詞可以幫助AI更準確地理解並回答使用者的問題</p>
-                        <button class="btn btn-primary" onclick="openAddPromptModal()">
-                            <i class="fas fa-plus"></i>
-                            <span>建立第一個提示詞</span>
-                        </button>
-                    </div>
-                </td>
-            `;
-            tbody.appendChild(emptyMessage);
-            return;
-        }
-
-        const isSinglePrompt = prompts.length === 1;
-
-        // 如果有資料，則顯示資料列表
+        
         prompts.forEach(prompt => {
             const createdAt = prompt.created_at 
                 ? new Date(prompt.created_at).toLocaleString('zh-TW', {
@@ -837,7 +783,6 @@ async function loadPromptsList() {
                         <input type="checkbox" class="form-check-input status-toggle" 
                                id="prompt_status_${prompt.id}"
                                ${prompt.status ? 'checked' : ''} 
-                               ${isSinglePrompt ? 'disabled' : ''}
                                onchange="updatePromptStatus(${prompt.id}, this.checked)">
                         <label class="form-check-label" for="prompt_status_${prompt.id}">
                             ${prompt.status ? '啟用' : '停用'}
@@ -845,16 +790,30 @@ async function loadPromptsList() {
                     </div>
                 </td>
                 <td>${createdAt}</td>
-                <td>
-                    <button class="btn btn-sm btn-primary me-2" onclick="editPrompt(${prompt.id})">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="deletePrompt(${prompt.id})">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                <td class="operation-cell">
+                    <div class="operation-btns">
+                        <button class="btn btn-primary btn-sm" onclick="editPrompt(${prompt.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deletePrompt(${prompt.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
+        });
+
+        // 保持狀態切換開關的事件監聽
+        document.querySelectorAll('.status-toggle').forEach(toggle => {
+            toggle.addEventListener('change', function(e) {
+                // 防止事件重複綁定
+                e.stopPropagation();
+                const label = this.nextElementSibling;
+                if (label) {
+                    label.textContent = this.checked ? '啟用' : '停用';
+                }
+            });
         });
     } catch (error) {
         console.error('Error:', error);
@@ -865,23 +824,6 @@ async function loadPromptsList() {
 // 更新提示詞狀態
 async function updatePromptStatus(id, status) {
     try {
-        // 檢查是否為唯一啟用的提示詞
-        const activePrompts = document.querySelectorAll('#prompts-table-body .status-toggle:checked');
-        if (activePrompts.length === 1 && !status) {
-            // 如果是最後一個啟用的提示詞，且要停用它
-            const toggle = document.getElementById(`prompt_status_${id}`);
-            if (toggle) {
-                toggle.checked = true; // 恢復開關狀態
-            }
-            await Swal.fire({
-                title: '無法停用',
-                text: '必須保持至少一個提示詞為啟用狀態',
-                icon: 'warning',
-                confirmButtonText: '確定'
-            });
-            return;
-        }
-
         const response = await fetch(`/api/prompts/${id}/status`, {
             method: 'PUT',
             headers: {
@@ -894,19 +836,6 @@ async function updatePromptStatus(id, status) {
 
         if (!response.ok || !data.success) {
             throw new Error(data.message || '更新狀態失敗');
-        }
-
-        // 如果啟用成功，更新所有其他提示詞的狀態顯示
-        if (status) {
-            document.querySelectorAll('#prompts-table-body .status-toggle').forEach(toggle => {
-                if (toggle.id !== `prompt_status_${id}`) {
-                    toggle.checked = false;
-                    const label = toggle.nextElementSibling;
-                    if (label) {
-                        label.textContent = '停用';
-                    }
-                }
-            });
         }
 
         // 更新當前提示詞的標籤文字
@@ -925,15 +854,13 @@ async function updatePromptStatus(id, status) {
     }
 }
 
-// 分類名稱對照表
+// 分類名稱轉換函數
 function getCategoryName(category) {
-    const categories = {
-        'general': '一般對話',
-        'analysis': '數據分析',
-        'tutorial': '教學指導',
-        // 可以根據需求添加更多分類
+    const categoryMap = {
+        'chat': '聊天智能客服',
+        'script': '腳本生成使用'
     };
-    return categories[category] || category;
+    return categoryMap[category] || category;
 }
 
 // 打開新增提示詞對話框
@@ -1014,20 +941,6 @@ function updateBatchDeleteButton() {
     }
 }
 
-// 修改全選功能
-function toggleSelectAllPrompts() {
-    const selectAll = document.getElementById('select-all');
-    // 只選擇提示詞表格中的 checkbox
-    const checkboxes = document.querySelectorAll('#prompts-table-body input[type="checkbox"].prompt-checkbox');
-    
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = selectAll.checked;
-    });
-    
-    // 更新批量刪除按鈕狀態
-    updateBatchDeletePromptsButton();
-}
-
 // 編輯提示詞
 async function editPrompt(id) {
     try {
@@ -1045,7 +958,7 @@ async function editPrompt(id) {
         
         // 填充表單數據
         document.getElementById('promptName').value = data.name || '';
-        document.getElementById('promptCategory').value = data.category || 'general';
+        document.getElementById('promptCategory').value = data.category || '';
         document.getElementById('promptOrder').value = data.sort_order || 1;
         
         // 更新提示詞內容，預設為收合狀態

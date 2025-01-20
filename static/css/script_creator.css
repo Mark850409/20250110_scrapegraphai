@@ -63,3 +63,64 @@
 .swal2-html-container {
     margin: 1rem 0;
 }
+
+/* 卡片樣式 */
+.card {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    background-color: #fff;
+}
+
+.card-header {
+    background-color: #fff;
+    border-bottom: 1px solid #e9ecef;
+    padding: 1rem 1.5rem;
+}
+
+.card-title {
+    color: #495057;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* 表單元素樣式 */
+.form-label.required-field::after {
+    content: "*";
+    color: #dc3545;
+    margin-left: 4px;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.15);
+}
+
+/* 按鈕組樣式 */
+.btn-group {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.btn-group .btn {
+    padding: 0.5rem 1.25rem;
+    font-weight: 500;
+}
+
+/* 代碼區塊樣式 */
+pre {
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    padding: 1rem;
+    margin: 0;
+}
+
+code {
+    font-family: 'Source Code Pro', monospace;
+    font-size: 0.9rem;
+}

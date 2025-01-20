@@ -230,30 +230,223 @@ function addThinkingMessage() {
     return thinkingDiv;
 }
 
-// 修改 sendToServer 函數
+// 修改获取提示词的函数
+async function getSystemPrompt() {
+    try {
+        // 添加时间戳或随机数以避免缓存
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/api/prompts/system?t=${timestamp}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch system prompt');
+        }
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to get system prompt');
+        }
+        
+        // 打印获取到的提示词，方便调试
+        console.log('Current system prompt:', data.content);
+        
+        return data.content || '';
+    } catch (error) {
+        console.error('Error fetching system prompt:', error);
+        return ''; // 返回空字符串作为默认值
+    }
+}
+
+// 添加刷新提示词的函数
+async function refreshSystemPrompt() {
+    try {
+        const systemPrompt = await getSystemPrompt();
+        console.log('System prompt refreshed:', systemPrompt);
+        return systemPrompt;
+    } catch (error) {
+        console.error('Error refreshing system prompt:', error);
+        return '';
+    }
+}
+
+// 添加获取配置的函数
+async function getConfig() {
+    try {
+        const response = await fetch('/api/config/chat');
+        if (!response.ok) {
+            throw new Error('Failed to fetch config');
+        }
+        const config = await response.json();
+        return config;
+    } catch (error) {
+        console.error('Error fetching config:', error);
+        throw error;
+    }
+}
+
+// 修改 sendToServer 函数
 async function sendToServer(message) {
     const thinkingDiv = addThinkingMessage();
     try {
-        const response = await fetch('/api/chat', {
+        const [config, systemPrompt] = await Promise.all([
+            getConfig(),
+            refreshSystemPrompt()
+        ]);
+        
+        const requestBody = {
+            input_value: message,  // 只在頂層設置 input_value
+            output_type: "chat",
+            input_type: "chat",
+            tweaks: {
+                "ChatInput-lg44S": {
+                    "background_color": "",
+                    "chat_icon": "",
+                    "files": "",
+                    // 移除 input_value
+                    "sender": "User",
+                    "sender_name": "User",
+                    "session_id": "",
+                    "should_store_message": true,
+                    "text_color": ""
+                },
+                "Prompt-EF0ZF": {
+                    "context": message,
+                    "question": message,
+                    "template": "{context}\n\n---\n\nGiven the context above, answer the question as best as possible.\n\nQuestion: {question}\n\nAnswer: "
+                },
+                "OpenAIModel-7rz2d": {
+                    "api_key": config.OPENAI_API_KEY,
+                    "model_name": "gpt-4o-mini",
+                    "system_message": systemPrompt,
+                    "temperature": 0.5
+                },
+                "Chroma-B2dAI": {
+                    "collection_name": "myai",
+                    "number_of_results": 10,
+                    "persist_directory": "ai_0119_4",
+                    "search_query": message,
+                    "search_type": "Similarity"
+                },
+                "ParseData-vPZnv": {
+                    "sep": "\n",
+                    "template": "{text}"
+                },
+                "SplitText-nwhoY": {
+                    "chunk_overlap": 200,
+                    "chunk_size": 1000,
+                    "separator": "\n"
+                },
+                "ChatOutput-J5E4r": {
+                    "background_color": "",
+                    "chat_icon": "",
+                    "data_template": "{text}",
+                    "input_value": "",
+                    "sender": "Machine",
+                    "sender_name": "AI",
+                    "session_id": "",
+                    "should_store_message": true,
+                    "text_color": ""
+                },
+                "OpenAIEmbeddings-fk8d2": {
+                    "chunk_size": 1000,
+                    "client": "",
+                    "default_headers": {},
+                    "default_query": {},
+                    "deployment": "",
+                    "dimensions": null,
+                    "embedding_ctx_length": 1536,
+                    "max_retries": 3,
+                    "model": "text-embedding-3-small",
+                    "model_kwargs": {},
+                    "openai_api_base": "",
+                    "openai_api_key": config.OPENAI_API_KEY,
+                    "openai_api_type": "",
+                    "openai_api_version": "",
+                    "openai_organization": "",
+                    "openai_proxy": "",
+                    "request_timeout": null,
+                    "show_progress_bar": false,
+                    "skip_empty": false,
+                    "tiktoken_enable": true,
+                    "tiktoken_model_name": ""
+                },
+                "OpenAIEmbeddings-qricR": {
+                    "chunk_size": 1000,
+                    "client": "",
+                    "default_headers": {},
+                    "default_query": {},
+                    "deployment": "",
+                    "dimensions": null,
+                    "embedding_ctx_length": 1536,
+                    "max_retries": 3,
+                    "model": "text-embedding-3-small",
+                    "model_kwargs": {},
+                    "openai_api_base": "",
+                    "openai_api_key": config.OPENAI_API_KEY,
+                    "openai_api_type": "",
+                    "openai_api_version": "",
+                    "openai_organization": "",
+                    "openai_proxy": "",
+                    "request_timeout": null,
+                    "show_progress_bar": false,
+                    "skip_empty": false,
+                    "tiktoken_enable": true,
+                    "tiktoken_model_name": ""
+                },
+                "Directory-02blE": {
+                    "depth": 0,
+                    "load_hidden": false,
+                    "max_concurrency": 2,
+                    "path": "/root/.cache/langflow/ae94aa3d-ca48-4d32-afca-3913d1f1669c/",
+                    "recursive": false,
+                    "silent_errors": false,
+                    "types": "",
+                    "use_multithreading": false
+                },
+                "Chroma-kMCGf": {
+                    "allow_duplicates": false,
+                    "chroma_server_cors_allow_origins": "",
+                    "chroma_server_grpc_port": null,
+                    "chroma_server_host": "",
+                    "chroma_server_http_port": null,
+                    "chroma_server_ssl_enabled": false,
+                    "collection_name": "myai",
+                    "limit": null,
+                    "number_of_results": 10,
+                    "persist_directory": "ai_0119_4",
+                    "search_query": message,
+                    "search_type": "Similarity"
+                }
+            }
+        };
+
+        console.log('Sending request:', requestBody);  // 添加請求日誌
+
+        const response = await fetch(config.LANGFLOW_API_URL, {
             method: 'POST',
             headers: {
+                'Authorization': 'Bearer ' + config.LANGFLOW_API_TOKEN,
                 'Content-Type': 'application/json',
+                'x-api-key': config.LANGFLOW_API_KEY
             },
-            body: JSON.stringify({ message })
+            body: JSON.stringify(requestBody)
         });
         
         const data = await response.json();
+        console.log('Langflow response:', data);  // 添加回應日誌
         
-        // 移除思考中的訊息
         thinkingDiv.remove();
         
         if (data.error) {
             throw new Error(data.error);
         }
         
-        addMessage('bot', data.response);
+        const botResponse = data.result?.output || 
+                           data.result?.response || 
+                           data.outputs?.[0]?.output || 
+                           data.outputs?.[0]?.outputs?.[0]?.artifacts?.message || 
+                           '抱歉，我無法理解您的問題。';
+        
+        addMessage('bot', botResponse);
     } catch (error) {
-        // 移除思考中的訊息
         thinkingDiv.remove();
         console.error('Error:', error);
         addMessage('bot', '抱歉，發生錯誤，請稍後再試。');

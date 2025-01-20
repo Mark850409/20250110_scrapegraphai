@@ -121,13 +121,13 @@
     <div class="content-wrapper">
         {% if alert and request.endpoint not in ['index', 'learning_center'] %}
             <div class="container mt-3">
-                <div class="alert alert-{{ alert.type }}" role="alert">
-                    <div class="d-flex align-items-center">
-                        <i class="{{ alert.icon }} me-2"></i>
-                        <div>
-                            <strong>{{ alert.title }}</strong>
-                            <p class="mb-0">{{ alert.message }}</p>
-                        </div>
+                <div class="alert alert-{{ alert.type }}">
+                    <div class="alert-header">
+                        <i class="{{ alert.icon }}"></i>
+                        <h5 class="alert-title">{{ alert.title }}</h5>
+                    </div>
+                    <div class="alert-body">
+                        {{ alert.message }}
                     </div>
                 </div>
             </div>

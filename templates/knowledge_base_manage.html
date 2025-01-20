@@ -28,92 +28,130 @@
     <div class="tab-content" id="knowledgeBaseContent">
         <!-- Upload Tab -->
         <div class="tab-pane fade show active" id="upload" role="tabpanel">
-            <form id="uploadForm" class="needs-validation" novalidate>
-                <div class="mb-3">
-                    <label for="knowledgeBaseUrl" class="form-label required">知識庫網址</label>
-                    <input type="text" class="form-control" id="knowledgeBaseUrl" required>
+            <div class="card">
+                <div class="card-header d-flex align-items-center">
+                    <i class="fas fa-cloud-upload-alt me-2"></i>
+                    <h5 class="card-title mb-0">檔案上傳</h5>
                 </div>
-                <div class="mb-3">
-                    <label for="processId" class="form-label required">知識庫流程ID</label>
-                    <input type="text" class="form-control" id="processId" required>
+                <div class="card-body">
+                    <form id="uploadForm" class="needs-validation" novalidate>
+                        <div class="mb-3">
+                            <label for="knowledgeBaseUrl" class="form-label required">知識庫網址</label>
+                            <input type="text" class="form-control" id="knowledgeBaseUrl" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="processId" class="form-label required">知識庫流程ID</label>
+                            <input type="text" class="form-control" id="processId" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label required">上傳檔案</label>
+                            <div id="dropZone" class="drag-drop-zone">
+                                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                                <p class="upload-text mb-2">拖曳檔案至此處或點擊上傳</p>
+                                <p class="upload-subtext mb-0">支援的檔案類型：CSV、Excel (xlsx/xls)、PDF、Markdown (md)、Word (docx)、Text (txt)</p>
+                                <input type="file" id="fileInput" multiple style="display: none" accept=".csv,.xlsx,.xls,.pdf,.md,.docx,.txt">
+                            </div>
+                            <!-- 包裝需要控制顯示的元素 -->
+                            <div id="fileControlsContainer" style="display: none;">
+                                <div class="view-toggle my-4 px-2">
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-outline-primary" data-view="list">
+                                            <i class="fas fa-list me-2"></i>列表檢視
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary active" data-view="grid">
+                                            <i class="fas fa-th-large me-2"></i>卡片檢視
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="fileList" class="file-list grid-view"></div>
+                                <div class="button-container">
+                                    <button type="submit" class="btn btn-primary btn-with-icon" id="uploadButton">
+                                        <i class="fas fa-upload btn-icon"></i>
+                                        <span>上傳檔案</span>
+                                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-with-icon" id="clearButton">
+                                        <i class="fas fa-trash-alt btn-icon"></i>
+                                        <span>清空檔案</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label required">上傳檔案</label>
-                    <div id="dropZone" class="drag-drop-zone">
-                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <p class="upload-text mb-2">拖曳檔案至此處或點擊上傳</p>
-                        <p class="upload-subtext mb-0">支援的檔案類型：CSV、Excel (xlsx/xls)、PDF、Markdown (md)、Word (docx)、Text (txt)</p>
-                        <input type="file" id="fileInput" multiple style="display: none" accept=".csv,.xlsx,.xls,.pdf,.md,.docx,.txt">
-                    </div>
-                    <div id="fileList" class="file-list"></div>
-                </div>
-                <div class="button-container">
-                    <button type="submit" class="btn btn-primary btn-with-icon" id="uploadButton">
-                        <i class="fas fa-upload btn-icon"></i>
-                        <span>上傳檔案</span>
-                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
-                    </button>
-                    <button type="button" class="btn btn-danger btn-with-icon" id="clearButton">
-                        <i class="fas fa-trash-alt btn-icon"></i>
-                        <span>清空檔案</span>
-                    </button>
-                </div>
-            </form>
+            </div>
         </div>
 
         <!-- Manage Tab -->
         <div class="tab-pane fade" id="manage" role="tabpanel">
-            <div class="search-container">
-                <form id="searchForm" class="search-form">
-                    <div class="form-group">
+            <!-- 查詢區塊 -->
+            <div class="search-container mb-4">
+                <div class="search-header mb-3">
+                    <i class="fas fa-search me-2"></i>
+                    <span>查詢條件</span>
+                </div>
+                <form id="searchForm" class="search-form row g-3">
+                    <div class="col-md-5">
                         <label for="searchKnowledgeBaseUrl" class="form-label required">知識庫網址</label>
                         <input type="text" class="form-control" id="searchKnowledgeBaseUrl" required>
                     </div>
-                    <div class="form-group">
+                    <div class="col-md-5">
                         <label for="searchProcessId" class="form-label required">知識庫流程ID</label>
                         <input type="text" class="form-control" id="searchProcessId" required>
                     </div>
-                    <div class="form-group">
-                        <button type="submit" class="btn btn-primary" id="searchButton">
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100" id="searchButton">
                             <i class="fas fa-search me-2"></i>查詢
                         </button>
                     </div>
                 </form>
             </div>
 
-            <div id="tableContainer" style="display: none;">
-                <div class="table-top-container">
-                    <input type="text" class="form-control table-search" id="tableSearch" placeholder="搜尋...">
-                </div>
-                
-                <div class="table-responsive">
-                    <table class="table table-striped" id="knowledgeTable">
-                        <thead>
-                            <tr>
-                                <th>檔案名稱</th>
-                                <th>上傳時間</th>
-                                <th>檔案大小</th>
-                                <th>狀態</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div class="table-bottom-container">
-                    <div class="page-size-container">
-                        <span>每頁顯示:</span>
-                        <select class="form-select" id="pageSize">
-                            <option value="10">10</option>
-                            <option value="25">25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
+            <!-- 表格結果區塊 -->
+            <div id="tableContainer" class="mt-4" style="display: none;">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-database me-2"></i>
+                            <h5 class="card-title mb-0">知識庫管理</h5>
+                        </div>
+                        <div class="search-box">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" class="form-control search-input" id="tableSearch" placeholder="搜尋...">
+                        </div>
                     </div>
-                    <div class="pagination-container">
-                        <ul class="pagination" id="pagination">
-                        </ul>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table mb-0" id="knowledgeTable">
+                                <thead>
+                                    <tr>
+                                        <th>檔案名稱</th>
+                                        <th>上傳時間</th>
+                                        <th>狀態</th>
+                                        <th class="text-center">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="table-bottom-container">
+                            <div class="page-size-container">
+                                <span>每頁顯示:</span>
+                                <select class="form-select" id="pageSize">
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
+                            <div class="pagination-container">
+                                <ul class="pagination mb-0" id="pagination">
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
