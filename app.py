@@ -21,6 +21,7 @@ from apscheduler.triggers.date import DateTrigger
 import pytz
 import uuid
 import atexit
+import re
 
 app = Flask(__name__)
 load_dotenv()
@@ -2159,76 +2160,87 @@ def get_schedules():
         conn = sqlite3.connect('scripts.db')
         c = conn.cursor()
         c.execute('''
-            SELECT id, name, type, script_content, schedule_time, 
-                   frequency, status, last_run, result, error_message, 
-                   created_at, selected_days, next_run 
-            FROM schedules 
+            SELECT id, name, type, script_content, schedule_time, frequency, 
+                   status, selected_days, next_run, last_run, result, error_message,
+                   created_at, file_name
+            FROM schedules
             ORDER BY created_at DESC
         ''')
+        rows = c.fetchall()
         
         schedules = []
-        for row in c.fetchall():
-            # 解析 selected_days JSON 字符串
-            selected_days = json.loads(row[11]) if row[11] else []
-            
-            # 格式化執行時間顯示
+        for row in rows:
             schedule_time = row[4]
-            frequency = row[5]
-            
             try:
-                # 解析時間
-                if ':' in schedule_time:
-                    if ' ' in schedule_time:  # 完整日期時間格式
-                        dt = datetime.strptime(schedule_time, '%Y-%m-%d %H:%M')
-                    else:  # 只有時間格式
-                        time_parts = schedule_time.split(':')
-                        dt = datetime.now().replace(
-                            hour=int(time_parts[0]),
-                            minute=int(time_parts[1]),
-                            second=0,
-                            microsecond=0
-                        )
-                    
-                    # 統一格式化為 HH:MM
-                    time_str = dt.strftime('%Y-%m-%d %H:%M')
+                # 先移除所有現有的描述文字
+                clean_time = re.sub(r'\([^)]*\)', '', schedule_time).strip()
+                print("清理後的時間:", clean_time)
+                
+                # 統一時間格式處理
+                if ':' in clean_time:
+                    # 如果包含完整日期
+                    if re.search(r'\d{4}[-/]\d{2}[-/]\d{2}', clean_time):
+                        date_match = re.search(r'(\d{4}[-/]\d{2}[-/]\d{2})', clean_time)
+                        time_match = re.search(r'(\d{2}:\d{2}(?::\d{2})?)', clean_time)
+                        
+                        if date_match and time_match:
+                            date_str = date_match.group(1).replace('/', '-')
+                            time_str = time_match.group(1)
+                            if time_str.count(':') == 1:
+                                time_str += ':00'
+                            formatted_time = f"{date_str} {time_str}"
+                        else:
+                            formatted_time = schedule_time
+                    else:
+                        time_str = re.search(r'(\d{2}:\d{2})', clean_time).group(1)
+                        today = datetime.now().strftime('%Y-%m-%d')
+                        formatted_time = f"{today} {time_str}:00"
                 else:
-                    time_str = schedule_time
-                    
-                # 根據頻率添加描述
-                if frequency == 'weekly' and selected_days:
-                    weekday_names = ['週日', '週一', '週二', '週三', '週四', '週五', '週六']
-                    weekdays = [weekday_names[day] for day in selected_days]
-                    schedule_display = f"{time_str} ({weekdays[0]})"
-                elif frequency == 'monthly' and selected_days:
-                    schedule_display = f"{time_str} ({selected_days[0]}日)"
-                elif frequency == 'daily':
-                    schedule_display = f"{time_str}"
-                elif frequency == 'once':
-                    schedule_display = f"{schedule_time} (單次執行)"
-                else:
-                    schedule_display = schedule_time
-                    
-            except ValueError as e:
-                print(f"Error formatting time: {e}")
-                schedule_display = schedule_time
+                    formatted_time = schedule_time
 
-            schedules.append({
-                'id': row[0],
-                'name': row[1],
-                'type': row[2],
-                'script_content': row[3],
-                'schedule_time': schedule_display,
-                'frequency': row[5],
-                'status': row[6],
-                'last_run': row[7],
-                'result': row[8],
-                'error_message': row[9],
-                'created_at': row[10],
-                'selected_days': selected_days,
-                'next_run': row[12]
-            })
-        
+                # 根據頻率類型添加描述
+                if row[5] == 'once':
+                    formatted_time = f"{formatted_time} (單次執行)"
+                elif row[5] == 'daily':
+                    formatted_time = f"{formatted_time} (每日執行)"
+                elif row[5] == 'weekly' and row[7]:
+                    weekday_names = ['週日', '週一', '週二', '週三', '週四', '週五', '週六']
+                    selected_days = json.loads(row[7]) if row[7] else []
+                    weekdays = [weekday_names[day] for day in selected_days]
+                    formatted_time = f"{formatted_time} (每{','.join(weekdays)}執行)"
+                elif row[5] == 'monthly' and row[7]:
+                    selected_days = json.loads(row[7]) if row[7] else []
+                    days = [str(day) for day in selected_days]
+                    formatted_time = f"{formatted_time} (每月{','.join(days)}日執行)"
+
+            except Exception as e:
+                print(f"Error formatting time: {e}, original time: {schedule_time}")
+                formatted_time = schedule_time
+
+            try:
+                schedule = {
+                    'id': row[0],
+                    'name': row[1],
+                    'type': row[2],
+                    'script_content': row[3],
+                    'schedule_time': formatted_time,
+                    'frequency': row[5],
+                    'status': row[6],
+                    'selected_days': json.loads(row[7]) if row[7] and row[7].strip() else [],
+                    'next_run': row[8],
+                    'last_run': row[9],
+                    'result': row[10],
+                    'error_message': row[11],
+                    'created_at': row[12],
+                    'file_name': row[13] if len(row) > 13 else None
+                }
+                schedules.append(schedule)
+            except Exception as e:
+                print(f"Error processing row: {e}, row data: {row}")
+                continue
+            
         return jsonify(schedules)
+        
     except Exception as e:
         print(f"Error fetching schedules: {e}")
         return jsonify({'error': str(e)}), 500
@@ -2245,65 +2257,63 @@ def create_schedule():
         
         try:
             # 驗證必要欄位
-            required_fields = ['name', 'type', 'script_content', 'frequency', 'schedule_time']
+            required_fields = ['name', 'type', 'frequency', 'schedule_time']
             for field in required_fields:
                 if field not in data:
                     return jsonify({'error': f'缺少必要欄位: {field}'}), 400
 
+            # 檢查腳本來源和內容
+            script_source = data.get('script_source')
+            script_content = data.get('script_content', '')
+            file_name = data.get('file_name')
+
+            if script_source == 'file':
+                if not file_name or not script_content:
+                    return jsonify({'error': '請上傳腳本檔案'}), 400
+            elif script_source == 'text':
+                if not script_content.strip():
+                    return jsonify({'error': '請輸入腳本內容'}), 400
+                file_name = None
+            else:
+                return jsonify({'error': '無效的腳本來源'}), 400
+
             # 獲取選擇的執行日期（如果有）
             selected_days = data.get('selected_days', [])
-            
-            # 根據頻率類型驗證和處理執行時間
             frequency = data['frequency']
+            
+            # 其他驗證邏輯保持不變...
             if frequency == 'weekly' and not selected_days:
                 return jsonify({'error': '每週執行必須選擇執行日期'}), 400
             elif frequency == 'monthly' and not selected_days:
                 return jsonify({'error': '每月執行必須選擇執行日期'}), 400
 
-            # 計算下次執行時間
-            next_run = calculate_next_run(
-                frequency, 
-                data['schedule_time'], 
-                selected_days
-            )
-
-            # 將 selected_days 轉換為 JSON 字符串
+            next_run = calculate_next_run(frequency, data['schedule_time'], selected_days)
             selected_days_json = json.dumps(selected_days)
 
-            # 插入數據到資料庫，設置初始狀態為 pending
             c.execute('''
                 INSERT INTO schedules 
                 (name, type, script_content, schedule_time, frequency, status, 
-                 selected_days, next_run, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 selected_days, next_run, created_at, file_name)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 data['name'],
                 data['type'],
-                data['script_content'],
+                script_content,
                 data['schedule_time'],
                 frequency,
-                'pending',  # 修改這裡，新建排程時狀態為 pending
+                'pending',
                 selected_days_json,
                 next_run,
-                datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                file_name
             ))
             
             schedule_id = c.lastrowid
             conn.commit()
 
-            # 添加排程任務
-            add_schedule_job(
-                schedule_id,
-                frequency,
-                data['schedule_time'],
-                selected_days
-            )
+            add_schedule_job(schedule_id, frequency, data['schedule_time'], selected_days)
+            return jsonify({'message': '排程創建成功', 'id': schedule_id}), 201
             
-            return jsonify({
-                'message': '排程創建成功',
-                'id': schedule_id
-            }), 201
-
         except Exception as e:
             conn.rollback()
             raise e
@@ -2469,7 +2479,8 @@ def get_schedule(schedule_id):
         c = conn.cursor()
         c.execute('''
             SELECT id, name, type, script_content, schedule_time, frequency, 
-                   status, created_at, last_run, result, error_message, selected_days
+                   status, created_at, last_run, result, error_message, selected_days,
+                   file_name
             FROM schedules 
             WHERE id = ?
         ''', (schedule_id,))
@@ -2488,7 +2499,8 @@ def get_schedule(schedule_id):
                 'last_run': row[8],
                 'result': row[9],
                 'error_message': row[10],
-                'selected_days': json.loads(row[11]) if row[11] else []  # 解析 JSON 字符串
+                'selected_days': json.loads(row[11]) if row[11] else [],  # 解析 JSON 字符串
+                'file_name': row[12]  # 添加 file_name 字段
             }
             return jsonify(schedule)
         else:
@@ -2612,14 +2624,14 @@ def execute_script(schedule_id, script_type, script_content):
             # 更新排程狀態為執行中
             cursor.execute('''
                 UPDATE schedules 
-                SET status = 'running', last_run = ?
+                SET status = 'active', last_run = ?
                 WHERE id = ?
             ''', (time_str, schedule_id))
             
             # 記錄開始執行的日誌
             cursor.execute('''
                 INSERT INTO schedule_logs (schedule_id, execution_time, status, content)
-                VALUES (?, ?, 'running', ?)
+                VALUES (?, ?, 'active', ?)
             ''', (schedule_id, time_str, "開始執行排程任務"))
             
             log_id = cursor.lastrowid

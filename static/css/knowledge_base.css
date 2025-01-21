@@ -396,26 +396,129 @@
 
 /* 拖放區域樣式 */
 .drop-zone {
-    border: 2px dashed #ccc;
-    border-radius: 8px;
-    padding: 20px;
+    padding: 2rem;
     text-align: center;
     background-color: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
-.drop-zone:hover, .drop-zone.dragover {
-    border-color: #0d6efd;
+.drop-zone:hover {
     background-color: #e9ecef;
+    border-color: #0d6efd;
 }
 
-.drop-zone-content {
+.drop-zone.dragover {
+    background-color: rgba(13, 110, 253, 0.05);
+    border-color: #0d6efd;
+}
+
+.drop-zone i {
+    color: #0d6efd;
+    margin-bottom: 1rem;
+}
+
+.drop-zone p {
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.drop-zone .small {
     color: #6c757d;
 }
 
-.drop-zone-content i {
+/* 檔案列表樣式 */
+#scriptFileList .alert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0;
+    border: 1px solid rgba(0, 123, 255, 0.1);
+    background-color: rgba(0, 123, 255, 0.05);
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+#scriptFileList .alert:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+    border-color: rgba(0, 123, 255, 0.2);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+#scriptFileList .alert i {
+    font-size: 1.2rem;
     color: #0d6efd;
+    margin-right: 0.75rem;
+}
+
+#scriptFileList .alert-info {
+    color: #0c5460;
+    background-color: #f8f9fa;
+    border-left: 4px solid #0d6efd;
+}
+
+/* 新增：左側檔案資訊容器 */
+#scriptFileList .file-info {
+    display: flex;
+    align-items: center;
+}
+
+#scriptFileList .file-info i {
+    font-size: 1.2rem;
+    color: #0d6efd;
+    margin-right: 0.75rem;
+}
+
+/* 新增：移除按鈕樣式 */
+#scriptFileList .remove-file {
+    color: #dc3545;
+    cursor: pointer;
+    padding: 0.25rem;
+    margin-left: 1rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+#scriptFileList .remove-file:hover {
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+/* 拖曳上傳區域樣式 */
+.drop-zone {
+    padding: 2rem;
+    text-align: center;
+    background-color: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.drop-zone:hover {
+    background-color: #e9ecef;
+    border-color: #0d6efd;
+}
+
+.drop-zone.dragover {
+    background-color: rgba(13, 110, 253, 0.05);
+    border-color: #0d6efd;
+}
+
+.drop-zone i {
+    color: #0d6efd;
+    margin-bottom: 1rem;
+}
+
+.drop-zone p {
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.drop-zone .small {
+    color: #6c757d;
 }
 
 /* 檔案列表樣式 */
