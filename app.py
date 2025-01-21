@@ -7,7 +7,7 @@ import sqlite3
 import json
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from scrapegraphai.graphs import SmartScraperGraph, ScriptCreatorGraph
 from dotenv import load_dotenv
 from typing import List
@@ -19,6 +19,8 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 import pytz
+import uuid
+import atexit
 
 app = Flask(__name__)
 load_dotenv()
@@ -33,8 +35,9 @@ model = genai.GenerativeModel('gemini-pro')
 # 初始化資料庫
 def init_db():
     conn = sqlite3.connect('scripts.db')
-    c = conn.cursor()   
-    # 重新建立表格
+    c = conn.cursor()
+    
+    # 修改 schedules 表格，添加新欄位
     c.execute('''
         CREATE TABLE IF NOT EXISTS schedules (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -43,55 +46,25 @@ def init_db():
             script_content TEXT NOT NULL,
             schedule_time DATETIME NOT NULL,
             frequency TEXT NOT NULL,
-            status TEXT DEFAULT 'pending',
+            status TEXT DEFAULT 'stopped',
+            selected_days TEXT,  -- 新增欄位，存儲 JSON 格式的選擇日期
+            next_run DATETIME,   -- 新增欄位，存儲下次執行時間
             last_run DATETIME,
             result TEXT,
             error_message TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            file_name TEXT  -- 添加新欄位
-        )
-    ''')
-
-    # 建立其他必要的表格
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS script_records (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL,
-            duration REAL NOT NULL,
-            script TEXT NOT NULL,
-            url TEXT NOT NULL,
-            prompt TEXT NOT NULL
+            file_name TEXT
         )
     ''')
     
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS quick_questions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            display_text TEXT NOT NULL,
-            sort_order INTEGER NOT NULL,
-            status INTEGER DEFAULT 1
-        )
-    ''')
-    
-    # 檢查是否需要添加 file_name 欄位
+    # 檢查是否需要添加新欄位
     c.execute("PRAGMA table_info(schedules)")
     columns = [column[1] for column in c.fetchall()]
-    if 'file_name' not in columns:
-        c.execute('ALTER TABLE schedules ADD COLUMN file_name TEXT')
     
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS schedule_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            schedule_id INTEGER NOT NULL,
-            execution_time DATETIME NOT NULL,
-            status TEXT NOT NULL,
-            content TEXT NOT NULL,
-            duration REAL,
-            error_message TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (schedule_id) REFERENCES schedules(id)
-        )
-    ''')
+    if 'selected_days' not in columns:
+        c.execute('ALTER TABLE schedules ADD COLUMN selected_days TEXT')
+    if 'next_run' not in columns:
+        c.execute('ALTER TABLE schedules ADD COLUMN next_run DATETIME')
     
     conn.commit()
     conn.close()
@@ -2176,6 +2149,9 @@ def get_chat_config():
 scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Taipei'))
 scheduler.start()
 
+# 在應用關閉時關閉排程器
+atexit.register(lambda: scheduler.shutdown())
+
 # API 路由
 @app.route('/api/schedules', methods=['GET'])
 def get_schedules():
@@ -2184,25 +2160,72 @@ def get_schedules():
         c = conn.cursor()
         c.execute('''
             SELECT id, name, type, script_content, schedule_time, 
-                   frequency, status, last_run, result, error_message, created_at 
+                   frequency, status, last_run, result, error_message, 
+                   created_at, selected_days, next_run 
             FROM schedules 
             ORDER BY created_at DESC
         ''')
         
         schedules = []
         for row in c.fetchall():
+            # 解析 selected_days JSON 字符串
+            selected_days = json.loads(row[11]) if row[11] else []
+            
+            # 格式化執行時間顯示
+            schedule_time = row[4]
+            frequency = row[5]
+            
+            try:
+                # 解析時間
+                if ':' in schedule_time:
+                    if ' ' in schedule_time:  # 完整日期時間格式
+                        dt = datetime.strptime(schedule_time, '%Y-%m-%d %H:%M')
+                    else:  # 只有時間格式
+                        time_parts = schedule_time.split(':')
+                        dt = datetime.now().replace(
+                            hour=int(time_parts[0]),
+                            minute=int(time_parts[1]),
+                            second=0,
+                            microsecond=0
+                        )
+                    
+                    # 統一格式化為 HH:MM
+                    time_str = dt.strftime('%Y-%m-%d %H:%M')
+                else:
+                    time_str = schedule_time
+                    
+                # 根據頻率添加描述
+                if frequency == 'weekly' and selected_days:
+                    weekday_names = ['週日', '週一', '週二', '週三', '週四', '週五', '週六']
+                    weekdays = [weekday_names[day] for day in selected_days]
+                    schedule_display = f"{time_str} ({weekdays[0]})"
+                elif frequency == 'monthly' and selected_days:
+                    schedule_display = f"{time_str} ({selected_days[0]}日)"
+                elif frequency == 'daily':
+                    schedule_display = f"{time_str}"
+                elif frequency == 'once':
+                    schedule_display = f"{schedule_time} (單次執行)"
+                else:
+                    schedule_display = schedule_time
+                    
+            except ValueError as e:
+                print(f"Error formatting time: {e}")
+                schedule_display = schedule_time
+
             schedules.append({
                 'id': row[0],
                 'name': row[1],
                 'type': row[2],
                 'script_content': row[3],
-                'schedule_time': row[4],
+                'schedule_time': schedule_display,
                 'frequency': row[5],
                 'status': row[6],
                 'last_run': row[7],
                 'result': row[8],
                 'error_message': row[9],
-                'created_at': row[10]
+                'created_at': row[10],
+                'selected_days': selected_days,
+                'next_run': row[12]
             })
         
         return jsonify(schedules)
@@ -2210,182 +2233,267 @@ def get_schedules():
         print(f"Error fetching schedules: {e}")
         return jsonify({'error': str(e)}), 500
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 @app.route('/api/schedules', methods=['POST'])
-@app.route('/api/schedules/<int:schedule_id>', methods=['PUT'])
-def save_schedule(schedule_id=None):
+def create_schedule():
     try:
         data = request.get_json()
-        
-        # 驗證必要欄位
-        required_fields = ['name', 'type', 'script_content', 'schedule_time', 'frequency']
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({'error': f'缺少必要欄位: {field}'}), 400
-        
         conn = sqlite3.connect('scripts.db')
         c = conn.cursor()
         
         try:
-            # 如果是更新，先移除舊的排程
-            if schedule_id and scheduler.get_job(f'schedule_{schedule_id}'):
-                scheduler.remove_job(f'schedule_{schedule_id}')
+            # 驗證必要欄位
+            required_fields = ['name', 'type', 'script_content', 'frequency', 'schedule_time']
+            for field in required_fields:
+                if field not in data:
+                    return jsonify({'error': f'缺少必要欄位: {field}'}), 400
 
-            # 設定初始狀態為 'pending'
-            initial_status = 'pending'
-
-            # 處理時間格式
-            schedule_time = data['schedule_time']
-            current_date = datetime.now(pytz.timezone('Asia/Taipei'))
+            # 獲取選擇的執行日期（如果有）
+            selected_days = data.get('selected_days', [])
             
-            if data['frequency'] != 'once':
-                # 對於重複執行的排程，使用當前日期加上選擇的時間
-                schedule_time = current_date.strftime('%Y-%m-%d ') + schedule_time
-            else:
-                # 對於單次執行，需要完整的日期時間
-                if not 'T' in schedule_time:
-                    schedule_time = current_date.strftime('%Y-%m-%d ') + schedule_time
-                else:
-                    schedule_time = schedule_time.replace('T', ' ')
+            # 根據頻率類型驗證和處理執行時間
+            frequency = data['frequency']
+            if frequency == 'weekly' and not selected_days:
+                return jsonify({'error': '每週執行必須選擇執行日期'}), 400
+            elif frequency == 'monthly' and not selected_days:
+                return jsonify({'error': '每月執行必須選擇執行日期'}), 400
+
+            # 計算下次執行時間
+            next_run = calculate_next_run(
+                frequency, 
+                data['schedule_time'], 
+                selected_days
+            )
+
+            # 將 selected_days 轉換為 JSON 字符串
+            selected_days_json = json.dumps(selected_days)
+
+            # 插入數據到資料庫，設置初始狀態為 pending
+            c.execute('''
+                INSERT INTO schedules 
+                (name, type, script_content, schedule_time, frequency, status, 
+                 selected_days, next_run, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                data['name'],
+                data['type'],
+                data['script_content'],
+                data['schedule_time'],
+                frequency,
+                'pending',  # 修改這裡，新建排程時狀態為 pending
+                selected_days_json,
+                next_run,
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            ))
+            
+            schedule_id = c.lastrowid
+            conn.commit()
+
+            # 添加排程任務
+            add_schedule_job(
+                schedule_id,
+                frequency,
+                data['schedule_time'],
+                selected_days
+            )
+            
+            return jsonify({
+                'message': '排程創建成功',
+                'id': schedule_id
+            }), 201
+
+        except Exception as e:
+            conn.rollback()
+            raise e
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+def calculate_next_run(frequency, schedule_time, selected_days=None):
+    """計算下次執行時間"""
+    try:
+        print(f"Calculating next run for: frequency={frequency}, time={schedule_time}, days={selected_days}")
+        now = datetime.now()
+        
+        if frequency == 'once':
+            try:
+                # 確保時間格式正確
+                return datetime.strptime(schedule_time, '%Y-%m-%d %H:%M').strftime('%Y-%m-%d %H:%M:%S')
+            except ValueError as e:
+                print(f"Error parsing once schedule time: {e}")
+                return None
+        
+        # 解析時間
+        try:
+            if ':' not in schedule_time:
+                raise ValueError('無效的時間格式')
+            
+            time_parts = schedule_time.split(':')
+            hour = int(time_parts[0])
+            minute = int(time_parts[1])
+            
+            if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                raise ValueError('無效的時間值')
+                
+            # 創建當天的目標時間
+            target_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                
+        except (ValueError, IndexError) as e:
+            print(f"Error parsing time parts: {e}")
+            raise ValueError('無效的時間格式')
+        
+        if frequency == 'daily':
+            next_run = target_time
+            if next_run <= now:
+                next_run += timedelta(days=1)
+                
+        elif frequency == 'weekly':
+            if not selected_days:
+                raise ValueError('未選擇執行日期')
+            
+            # 找到下一個符合的週幾
+            current_weekday = now.weekday()
+            days_ahead = 7
+            for day in selected_days:
+                days_until = (day - current_weekday) % 7
+                if days_until < days_ahead and (days_until > 0 or (days_until == 0 and now < target_time)):
+                    days_ahead = days_until
+            
+            next_run = target_time + timedelta(days=days_ahead)
+            
+        elif frequency == 'monthly':
+            if not selected_days:
+                raise ValueError('未選擇執行日期')
+            
+            # 找到下一個符合的日期
+            current_day = now.day
+            next_month = now
+            if now >= target_time:
+                next_month = (now + timedelta(days=32)).replace(day=1)
+            
+            valid_days = sorted(selected_days)
+            next_day = None
+            for day in valid_days:
+                if day > current_day or (day == current_day and now < target_time):
+                    next_day = day
+                    break
+            
+            if next_day is None:
+                next_day = valid_days[0]
+                next_month = (now + timedelta(days=32)).replace(day=1)
+            
+            try:
+                next_run = next_month.replace(day=next_day, hour=hour, minute=minute, second=0, microsecond=0)
+            except ValueError:
+                # 處理無效日期（如2月30日）
+                next_month = (next_month + timedelta(days=32)).replace(day=1)
+                next_run = next_month.replace(day=valid_days[0], hour=hour, minute=minute, second=0, microsecond=0)
+        
+        return next_run.strftime('%Y-%m-%d %H:%M:%S')
+        
+    except Exception as e:
+        print(f"Error calculating next run: {e}")
+        return None
+
+@app.route('/api/schedules/<int:schedule_id>', methods=['PUT'])
+def save_schedule(schedule_id=None):
+    try:
+        data = request.get_json()
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        
+        try:
+            # 獲取選擇的執行日期
+            selected_days = data.get('selected_days', [])
+            
+            # 計算下次執行時間
+            next_run = calculate_next_run(
+                data['frequency'],
+                data['schedule_time'],
+                selected_days
+            )
+
+            # 將 selected_days 轉換為 JSON 字符串
+            selected_days_json = json.dumps(selected_days)
 
             if schedule_id:  # 更新現有排程
+                # 如果沒有特別指定狀態，則設為 pending
+                status = data.get('status', 'pending')
+                
                 c.execute('''
                     UPDATE schedules 
                     SET name = ?, type = ?, script_content = ?, 
-                        schedule_time = ?, frequency = ?, status = ?
+                        schedule_time = ?, frequency = ?, status = ?,
+                        selected_days = ?, next_run = ?
                     WHERE id = ?
                 ''', (
                     data['name'], data['type'], data['script_content'],
-                    schedule_time, data['frequency'], 
-                    data.get('status', initial_status),
+                    data['schedule_time'], data['frequency'], 
+                    status,
+                    selected_days_json, next_run,
                     schedule_id
                 ))
-                job_id = schedule_id
             else:  # 新增排程
                 c.execute('''
                     INSERT INTO schedules 
-                    (name, type, script_content, schedule_time, frequency, status)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (name, type, script_content, schedule_time, frequency, 
+                     status, selected_days, next_run)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     data['name'], data['type'], data['script_content'],
-                    schedule_time, data['frequency'], initial_status
+                    data['schedule_time'], data['frequency'], 'pending',
+                    selected_days_json, next_run
                 ))
-                job_id = c.lastrowid
-
-            # 解析排程設定
-            schedule_time_obj = datetime.strptime(schedule_time, '%Y-%m-%d %H:%M')
-            schedule_config = data.get('schedule_config', {})
-            
-            if data['frequency'] == 'weekly':
-                weekdays = schedule_config.get('weekdays', [])
-                if not weekdays:
-                    return jsonify({'error': '請選擇每週執行日'}), 400
-                
-                # 為每個選擇的星期創建一個觸發器
-                triggers = []
-                for weekday in weekdays:
-                    # 計算下一個執行時間
-                    trigger = CronTrigger(
-                        day_of_week=str(weekday),
-                        hour=schedule_time_obj.hour,
-                        minute=schedule_time_obj.minute,
-                        timezone=pytz.timezone('Asia/Taipei'),
-                        start_date=current_date  # 添加開始日期
-                    )
-                    triggers.append(trigger)
-
-            elif data['frequency'] == 'monthly':
-                monthdays = schedule_config.get('monthdays', [])
-                if not monthdays:
-                    return jsonify({'error': '請選擇每月執行日期'}), 400
-                
-                # 為每個選擇的日期創建一個觸發器
-                triggers = [
-                    CronTrigger(
-                        day=str(monthday),
-                        hour=schedule_time_obj.hour,
-                        minute=schedule_time_obj.minute,
-                        timezone=pytz.timezone('Asia/Taipei')
-                    ) for monthday in monthdays
-                ]
-                
-            elif data['frequency'] == 'once':
-                # 單次執行使用 DateTrigger
-                triggers = [DateTrigger(
-                    run_date=schedule_time_obj,
-                    timezone=pytz.timezone('Asia/Taipei')
-                )]
-            else:
-                # 每日執行
-                triggers = [CronTrigger(
-                    hour=schedule_time_obj.hour,
-                    minute=schedule_time_obj.minute,
-                    timezone=pytz.timezone('Asia/Taipei'),
-                    start_date=current_date  # 添加開始日期
-                )]
-
-            # 為每個觸發器創建一個任務
-            for i, trigger in enumerate(triggers):
-                job_id_str = f'schedule_{schedule_id or job_id}_{i}'
-                scheduler.add_job(
-                    execute_script,
-                    trigger=trigger,
-                    args=[schedule_id or job_id, data['type'], data['script_content']],
-                    id=job_id_str,
-                    replace_existing=True
-                )
 
             conn.commit()
             return jsonify({'message': '保存成功'}), 200
-            
+
         except Exception as e:
             conn.rollback()
-            return jsonify({'error': f'保存失敗: {str(e)}'}), 500
-            
-        finally:
-            conn.close()
-            
+            raise e
     except Exception as e:
-        return jsonify({'error': f'保存失敗: {str(e)}'}), 500
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 @app.route('/api/schedules/<int:schedule_id>', methods=['GET'])
 def get_schedule(schedule_id):
     try:
         conn = sqlite3.connect('scripts.db')
         c = conn.cursor()
-        
-        # 獲取排程詳細資訊
         c.execute('''
-            SELECT id, name, type, script_content, schedule_time, 
-                   frequency, status, last_run, result, error_message, 
-                   created_at, file_name 
+            SELECT id, name, type, script_content, schedule_time, frequency, 
+                   status, created_at, last_run, result, error_message, selected_days
             FROM schedules 
             WHERE id = ?
         ''', (schedule_id,))
-        
         row = c.fetchone()
-        if not row:
-            return jsonify({'error': '找不到排程'}), 404
+        
+        if row:
+            schedule = {
+                'id': row[0],
+                'name': row[1],
+                'type': row[2],
+                'script_content': row[3],
+                'schedule_time': row[4],
+                'frequency': row[5],
+                'status': row[6],
+                'created_at': row[7],
+                'last_run': row[8],
+                'result': row[9],
+                'error_message': row[10],
+                'selected_days': json.loads(row[11]) if row[11] else []  # 解析 JSON 字符串
+            }
+            return jsonify(schedule)
+        else:
+            return jsonify({'error': 'Schedule not found'}), 404
             
-        schedule = {
-            'id': row[0],
-            'name': row[1],
-            'type': row[2],
-            'script_content': row[3],
-            'schedule_time': row[4],
-            'frequency': row[5],
-            'status': row[6],
-            'last_run': row[7],
-            'result': row[8],
-            'error_message': row[9],
-            'created_at': row[10],
-            'file_name': row[11] if row[11] else ''
-        }
-        
-        print(f"Returning schedule: {schedule}")  # 用於調試
-        return jsonify(schedule)
-        
     except Exception as e:
         print(f"Error fetching schedule: {e}")
         return jsonify({'error': str(e)}), 500
@@ -2488,36 +2596,40 @@ tw_tz = pytz.timezone('Asia/Taipei')
 
 # 修改執行日誌記錄部分
 def execute_script(schedule_id, script_type, script_content):
+    """執行排程腳本"""
+    db_conn = None  # 改名以避免與其他 conn 混淆
     try:
-        start_time = time.time()
-        conn = sqlite3.connect('scripts.db')
-        c = conn.cursor()
+        execution_start = time.time()  # 改名以更清楚表達用途
+        db_conn = sqlite3.connect('scripts.db')
+        cursor = db_conn.cursor()
         
         # 取得台灣時間
-        now = datetime.now(tw_tz)
+        tw_tz = pytz.timezone('Asia/Taipei')
+        current_time = datetime.now(tw_tz)
+        time_str = current_time.strftime('%Y-%m-%d %H:%M:%S')
         
         try:
             # 更新排程狀態為執行中
-            c.execute('''
+            cursor.execute('''
                 UPDATE schedules 
                 SET status = 'running', last_run = ?
                 WHERE id = ?
-            ''', (now.strftime('%Y-%m-%d %H:%M:%S'), schedule_id))
+            ''', (time_str, schedule_id))
             
             # 記錄開始執行的日誌
-            c.execute('''
+            cursor.execute('''
                 INSERT INTO schedule_logs (schedule_id, execution_time, status, content)
                 VALUES (?, ?, 'running', ?)
-            ''', (schedule_id, now.strftime('%Y-%m-%d %H:%M:%S'), "開始執行排程任務"))
+            ''', (schedule_id, time_str, "開始執行排程任務"))
             
-            log_id = c.lastrowid
-            conn.commit()
+            log_id = cursor.lastrowid
+            db_conn.commit()
             
             # 創建臨時腳本文件
             script_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp')
             if not os.path.exists(script_dir):
                 os.makedirs(script_dir)
-                
+            
             temp_script = os.path.join(script_dir, f'temp_script_{schedule_id}.py')
             
             # 確保輸出目錄存在
@@ -2525,13 +2637,11 @@ def execute_script(schedule_id, script_type, script_content):
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
             
-            # 修改腳本內容，添加必要的導入和錯誤處理
-            safe_path = output_dir.replace('\\', '/') # 先處理路徑
+            # 修改腳本內容
             modified_script = f"""
 import os
 import sys
 sys.stdout.reconfigure(encoding='utf-8')
-# 主要腳本內容
 {script_content}
 """
             
@@ -2539,81 +2649,88 @@ sys.stdout.reconfigure(encoding='utf-8')
                 f.write(modified_script)
             
             try:
-                # 執行腳本並捕獲輸出
+                # 執行腳本
                 process = subprocess.Popen(
                     ['python', temp_script],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
-                    cwd=script_dir  # 設定工作目錄
+                    cwd=script_dir
                 )
                 stdout, stderr = process.communicate()
                 
                 if process.returncode == 0:
                     # 執行成功
-                    duration = time.time() - start_time
+                    duration = time.time() - execution_start
                     end_time = datetime.now(tw_tz)
+                    end_time_str = end_time.strftime('%Y-%m-%d %H:%M:%S')
                     
                     # 更新日誌
-                    c.execute('''
+                    cursor.execute('''
                         UPDATE schedule_logs 
                         SET status = 'success', duration = ?, error_message = NULL,
                             execution_time = ?, content = ?
                         WHERE id = ?
-                    ''', (duration, end_time.strftime('%Y-%m-%d %H:%M:%S'), 
-                          "排程任務執行成功", log_id))
+                    ''', (duration, end_time_str, "排程任務執行成功", log_id))
                     
                     # 更新排程狀態
-                    c.execute('''
+                    cursor.execute('''
                         UPDATE schedules 
                         SET status = 'completed', result = ?, error_message = NULL
                         WHERE id = ?
                     ''', (stdout.strip(), schedule_id))
-                    
                 else:
-                    # 執行失敗，提供更詳細的錯誤訊息
                     error_msg = stderr.strip() if stderr else "未知錯誤"
                     raise Exception(error_msg)
                     
             except Exception as e:
                 error = str(e)
-                duration = time.time() - start_time
+                duration = time.time() - execution_start
                 end_time = datetime.now(tw_tz)
+                end_time_str = end_time.strftime('%Y-%m-%d %H:%M:%S')
                 
-                # 更新日誌
                 error_message = f"執行失敗: {error}"
-                c.execute('''
+                cursor.execute('''
                     UPDATE schedule_logs 
                     SET status = 'failed', duration = ?, error_message = ?,
                         execution_time = ?, content = ?
                     WHERE id = ?
-                ''', (duration, error_message, end_time.strftime('%Y-%m-%d %H:%M:%S'),
-                      "排程任務執行失敗", log_id))
+                ''', (duration, error_message, end_time_str, "排程任務執行失敗", log_id))
                 
-                # 更新排程狀態
-                c.execute('''
+                cursor.execute('''
                     UPDATE schedules 
                     SET status = 'failed', error_message = ?
                     WHERE id = ?
                 ''', (error_message, schedule_id))
                 
             finally:
-                # 清理臨時文件
                 if os.path.exists(temp_script):
                     os.remove(temp_script)
                     
-            conn.commit()
+            db_conn.commit()
             
         except Exception as e:
             print(f"Database error: {e}")
-            conn.rollback()
+            if db_conn:
+                db_conn.rollback()
             raise
             
     except Exception as e:
         print(f"Error executing script: {e}")
+        if db_conn:
+            try:
+                error_time = datetime.now(tw_tz).strftime('%Y-%m-%d %H:%M:%S')
+                cursor.execute('''
+                    UPDATE schedules 
+                    SET status = 'failed', error_message = ?, last_run = ?
+                    WHERE id = ?
+                ''', (str(e), error_time, schedule_id))
+                db_conn.commit()
+            except Exception as inner_e:
+                print(f"Error updating error status: {inner_e}")
     finally:
-        if conn:
-            conn.close()
+        if db_conn:
+            db_conn.close()
 
 @app.route('/api/validate_python', methods=['POST'])
 def validate_python():
@@ -2791,6 +2908,103 @@ def get_schedule_logs(schedule_id):
     finally:
         if conn:
             conn.close()
+
+def add_schedule_job(schedule_id, frequency, schedule_time, selected_days=None):
+    """添加排程任務到 APScheduler"""
+    try:
+        # 移除現有的任務（如果存在）
+        job_id = f'schedule_{schedule_id}'
+        if scheduler.get_job(job_id):
+            scheduler.remove_job(job_id)
+
+        # 根據頻率設置觸發器
+        if frequency == 'once':
+            trigger = DateTrigger(
+                run_date=datetime.strptime(schedule_time, '%Y-%m-%d %H:%M'),
+                timezone=pytz.timezone('Asia/Taipei')
+            )
+        elif frequency == 'daily':
+            time_parts = schedule_time.split(':')
+            trigger = CronTrigger(
+                hour=int(time_parts[0]),
+                minute=int(time_parts[1]),
+                timezone=pytz.timezone('Asia/Taipei')
+            )
+        elif frequency == 'weekly':
+            time_parts = schedule_time.split(':')
+            # 修改這裡：將星期幾的數字轉換為對應的字符串
+            weekdays = []
+            for day in selected_days:
+                if day == 0:
+                    weekdays.append('sun')
+                elif day == 1:
+                    weekdays.append('mon')
+                elif day == 2:
+                    weekdays.append('tue')
+                elif day == 3:
+                    weekdays.append('wed')
+                elif day == 4:
+                    weekdays.append('thu')
+                elif day == 5:
+                    weekdays.append('fri')
+                elif day == 6:
+                    weekdays.append('sat')
+            
+            trigger = CronTrigger(
+                day_of_week=','.join(weekdays),  # 使用英文縮寫
+                hour=int(time_parts[0]),
+                minute=int(time_parts[1]),
+                timezone=pytz.timezone('Asia/Taipei')
+            )
+        elif frequency == 'monthly':
+            time_parts = schedule_time.split(':')
+            trigger = CronTrigger(
+                day=','.join(str(day) for day in selected_days),
+                hour=int(time_parts[0]),
+                minute=int(time_parts[1]),
+                timezone=pytz.timezone('Asia/Taipei')
+            )
+        else:
+            raise ValueError(f'不支援的頻率類型: {frequency}')
+
+        # 修改執行函數，確保數據庫連接在函數內部處理
+        def job_function(schedule_id=schedule_id):
+            conn = None
+            try:
+                conn = sqlite3.connect('scripts.db')
+                c = conn.cursor()
+                c.execute('''
+                    SELECT type, script_content
+                    FROM schedules
+                    WHERE id = ?
+                ''', (schedule_id,))
+                row = c.fetchone()
+                if row:
+                    script_type, script_content = row
+                    execute_script(schedule_id, script_type, script_content)
+                else:
+                    print(f"無法獲取排程 {schedule_id} 的資訊")
+            except Exception as e:
+                print(f"Error in job execution: {e}")
+            finally:
+                if conn:
+                    conn.close()
+
+        # 添加任務到排程器
+        scheduler.add_job(
+            job_function,
+            trigger=trigger,
+            id=job_id,
+            replace_existing=True,
+            args=[]  # 不需要傳遞參數，因為已經在閉包中捕獲
+        )
+
+        print(f"Successfully added schedule job: {job_id}")
+        return True
+
+    except Exception as e:
+        print(f"Error adding schedule job: {e}")
+        return False
 
 if __name__ == '__main__':
     app.run(debug=True)

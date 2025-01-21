@@ -12,6 +12,33 @@ function debounce(func, wait) {
 }
 
 // 將函數移到全局作用域
+function toggleScheduleTimeOptions() {
+    const frequency = document.getElementById('scheduleFrequency').value;
+    
+    // 隱藏所有時間選擇區域
+    document.getElementById('onceTimeGroup').style.display = 'none';
+    document.getElementById('dailyTimeGroup').style.display = 'none';
+    document.getElementById('weeklyTimeGroup').style.display = 'none';
+    document.getElementById('monthlyTimeGroup').style.display = 'none';
+    
+    // 根據選擇的頻率顯示對應的時間選擇
+    switch (frequency) {
+        case 'once':
+            document.getElementById('onceTimeGroup').style.display = 'block';
+            break;
+        case 'daily':
+            document.getElementById('dailyTimeGroup').style.display = 'block';
+            break;
+        case 'weekly':
+            document.getElementById('weeklyTimeGroup').style.display = 'block';
+            break;
+        case 'monthly':
+            document.getElementById('monthlyTimeGroup').style.display = 'block';
+            break;
+    }
+}
+
+// 將函數移到全局作用域
 let currentScheduleId = null;
 let scriptContent = '';
 
@@ -24,14 +51,67 @@ let schedulePageSize = 10;
 let scheduleSearchKeyword = '';
 let totalSchedules = []; // 添加總數據存儲
 
-// 開啟新增排程模態框
-function openAddScheduleModal() {
-    currentScheduleId = null;
-    document.getElementById('scheduleModalTitle').textContent = '新增排程任務';
+// 在文件開頭添加一個重置表單的函數
+function resetScheduleForm() {
+    // 重置表單基本欄位
     document.getElementById('scheduleForm').reset();
+    document.getElementById('scheduleModalTitle').textContent = '新增排程任務';
+    
+    // 重置腳本內容區域
+    document.getElementById('sourceText').checked = true;
+    document.getElementById('scriptTextArea').style.display = 'block';
+    document.getElementById('scriptFileArea').style.display = 'none';
+    document.getElementById('scriptContent').value = '';
+    document.getElementById('scriptFile').value = '';
+    document.getElementById('scriptFileList').innerHTML = '';
+    
+    // 先隱藏所有時間選擇區塊
+    document.getElementById('onceTimeGroup').style.display = 'none';
+    document.getElementById('dailyTimeGroup').style.display = 'none';
+    document.getElementById('weeklyTimeGroup').style.display = 'none';
+    document.getElementById('monthlyTimeGroup').style.display = 'none';
+    
+    // 重置週期選擇
+    document.querySelectorAll('.weekday-select').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    document.querySelectorAll('.monthly-day-select').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    
+    // 重置全局變數
+    currentScheduleId = null;
+    scriptContent = '';
+
+    // 根據當前選擇的頻率顯示對應的時間選擇區塊
+    const frequency = document.getElementById('scheduleFrequency').value;
+    switch (frequency) {
+        case 'once':
+            document.getElementById('onceTimeGroup').style.display = 'block';
+            break;
+        case 'daily':
+            document.getElementById('dailyTimeGroup').style.display = 'block';
+            break;
+        case 'weekly':
+            document.getElementById('weeklyTimeGroup').style.display = 'block';
+            break;
+        case 'monthly':
+            document.getElementById('monthlyTimeGroup').style.display = 'block';
+            break;
+    }
+}
+
+// 修改 openAddScheduleModal 函數
+function openAddScheduleModal() {
+    resetScheduleForm();
     const modal = new bootstrap.Modal(document.getElementById('scheduleModal'));
     modal.show();
 }
+
+// 在模態框關閉時重置表單
+document.getElementById('scheduleModal').addEventListener('hidden.bs.modal', function () {
+    resetScheduleForm();
+});
 
 // 初始化腳本來源切換和拖放功能
 function initScriptSourceToggle() {
@@ -213,39 +293,83 @@ async function saveSchedule() {
     try {
         const name = document.getElementById('scheduleName').value;
         const type = document.getElementById('scheduleType').value;
-        const scheduleTime = document.getElementById('scheduleTime').value;
         const frequency = document.getElementById('scheduleFrequency').value;
-        
+        let scheduleTime = '';
+        let selectedDays = [];
+
         // 檢查必填欄位
-        if (!name || !type || !scheduleTime || !frequency) {
-            await Swal.fire({
-                icon: 'error',
-                title: '錯誤',
-                text: '請填寫所有必填欄位'
-            });
-            return;
+        if (!name || !type || !frequency) {
+            throw new Error('請填寫所有必填欄位');
         }
+
+        // 根據頻率獲取時間和日期
+        switch (frequency) {
+            case 'once':
+                scheduleTime = document.getElementById('onceDateTime').value;
+                if (!scheduleTime) throw new Error('請選擇執行時間');
+                // 轉換日期時間格式
+                scheduleTime = scheduleTime.replace('T', ' ');
+                break;
+
+            case 'daily':
+                scheduleTime = document.getElementById('dailyTime').value;
+                if (!scheduleTime) throw new Error('請選擇執行時間');
+                // 確保時間格式正確
+                if (!/^\d{2}:\d{2}$/.test(scheduleTime)) {
+                    throw new Error('無效的時間格式');
+                }
+                break;
+
+            case 'weekly':
+                scheduleTime = document.getElementById('weeklyTime').value;
+                if (!scheduleTime) throw new Error('請選擇執行時間');
+                // 確保時間格式正確
+                if (!/^\d{2}:\d{2}$/.test(scheduleTime)) {
+                    throw new Error('無效的時間格式');
+                }
+                
+                selectedDays = Array.from(document.querySelectorAll('#weeklyTimeGroup .weekday-select:checked'))
+                    .map(cb => parseInt(cb.value));
+                if (selectedDays.length === 0) {
+                    throw new Error('請選擇每週執行日期');
+                }
+                break;
+
+            case 'monthly':
+                scheduleTime = document.getElementById('monthlyTime').value;
+                if (!scheduleTime) throw new Error('請選擇執行時間');
+                // 確保時間格式正確
+                if (!/^\d{2}:\d{2}$/.test(scheduleTime)) {
+                    throw new Error('無效的時間格式');
+                }
+                
+                selectedDays = Array.from(document.querySelectorAll('#monthlyTimeGroup .monthly-day-select:checked'))
+                    .map(cb => parseInt(cb.value));
+                if (selectedDays.length === 0) {
+                    throw new Error('請選擇每月執行日期');
+                }
+                break;
+        }
+
+        console.log('Sending schedule data:', {
+            frequency,
+            scheduleTime,
+            selectedDays
+        });
 
         // 獲取腳本內容
         let finalScriptContent = '';
         const scriptSource = document.querySelector('input[name="scriptSource"]:checked').value;
         
         if (scriptSource === 'text') {
-            // 從文本區域獲取腳本內容
             finalScriptContent = document.getElementById('scriptContent').value.trim();
         } else {
-            // 使用上傳的腳本內容
             finalScriptContent = scriptContent;
         }
 
         // 檢查腳本內容
         if (!finalScriptContent) {
-            await Swal.fire({
-                icon: 'error',
-                title: '錯誤',
-                text: '請輸入或上傳腳本內容'
-            });
-            return;
+            throw new Error('請輸入或上傳腳本內容');
         }
 
         // 準備請求數據
@@ -255,10 +379,11 @@ async function saveSchedule() {
             script_content: finalScriptContent,
             schedule_time: scheduleTime,
             frequency: frequency,
-            status: 'stopped'  // 新建或編輯時，狀態預設為停止
+            selected_days: selectedDays,
+            status: 'stopped'
         };
 
-        // 根據是否有 currentScheduleId 決定是新增還是更新
+        // 發送請求
         const url = currentScheduleId ? 
             `/api/schedules/${currentScheduleId}` : 
             '/api/schedules';
@@ -297,7 +422,7 @@ async function saveSchedule() {
         await Swal.fire({
             icon: 'error',
             title: '錯誤',
-            text: '保存排程失敗: ' + error.message
+            text: error.message
         });
     }
 }
@@ -428,7 +553,7 @@ function updateScheduleTable(schedules) {
         tr.innerHTML = `
             <td>${escapeHtml(schedule.name)}</td>
             <td>${getScheduleTypeName(schedule.type)}</td>
-            <td>${formatScheduleTime(schedule.schedule_time)} (${getScheduleFrequencyName(schedule.frequency)})</td>
+            <td>${formatScheduleTime(schedule.schedule_time, schedule.frequency)} (${getScheduleFrequencyName(schedule.frequency)})</td>
             <td>
                 ${getStatusBadge(schedule.status)}
                 ${schedule.error_message ? 
@@ -437,7 +562,7 @@ function updateScheduleTable(schedules) {
                     </span>` : 
                     ''}
             </td>
-            <td>${schedule.last_run ? formatScheduleTime(schedule.last_run) : '-'}</td>
+            <td>${schedule.last_run ? formatScheduleTime(schedule.last_run, schedule.frequency) : '-'}</td>
             <td>${createActionButtons(schedule)}</td>
         `;
         tbody.appendChild(tr);
@@ -464,22 +589,33 @@ function getScheduleFrequencyName(frequency) {
     return frequencies[frequency] || frequency;
 }
 
-function formatScheduleTime(timeStr) {
-    if (!timeStr) return '-';
+function formatScheduleTime(time, frequency) {
+    if (!time) return '-';
+    
+    // 對於每日、每週和每月的執行，只顯示時間部分
+    if (frequency === 'daily' || frequency === 'weekly' || frequency === 'monthly') {
+        const timeParts = time.split(':');
+        if (timeParts.length >= 2) {
+            return `${timeParts[0]}:${timeParts[1]}`;
+        }
+    }
+    
+    // 對於單次執行，顯示完整日期時間
     try {
-        const date = new Date(timeStr);
+        const date = new Date(time);
+        if (isNaN(date.getTime())) {
+            return time; // 如果轉換失敗，返回原始值
+        }
         return date.toLocaleString('zh-TW', {
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-            timeZone: 'Asia/Taipei'
+            minute: '2-digit'
         });
     } catch (e) {
-        console.error('日期格式化錯誤:', e);
-        return timeStr;
+        console.error('Error formatting time:', e);
+        return time;
     }
 }
 
@@ -505,83 +641,105 @@ function escapeHtml(unsafe) {
 }
 
 // 編輯排程
-async function editSchedule(id) {
+async function editSchedule(scheduleId) {
     try {
-        currentScheduleId = id;
+        resetScheduleForm(); // 先重置表單
+        currentScheduleId = scheduleId;
         
-        const response = await fetch(`/api/schedules/${id}`);
-        if (!response.ok) {
-            throw new Error('獲取排程資訊失敗');
-        }
-        
+        // 獲取當前排程的數據
+        const response = await fetch(`/api/schedules/${scheduleId}`);
         const schedule = await response.json();
-        console.log('Loaded schedule:', schedule);
+        console.log('Loaded schedule:', schedule); // 調試用
         
-        // 先保存腳本內容到全局變量
-        scriptContent = schedule.script_content;
+        // 確保模態框元素存在
+        const modalElement = document.getElementById('scheduleModal');
+        if (!modalElement) {
+            throw new Error('找不到模態框元素');
+        }
+
+        // 設置模態框標題
+        document.getElementById('scheduleModalTitle').textContent = '編輯排程任務';
         
-        // 獲取模態框元素
-        const modal = document.getElementById('scheduleModal');
+        // 填充基本表單數據
+        document.getElementById('scheduleName').value = schedule.name;
+        document.getElementById('scheduleType').value = schedule.type;
         
-        // 監聽模態框完全顯示後的事件
-        modal.addEventListener('shown.bs.modal', function onModalShown() {
-            // 設置表單值
-            document.getElementById('scheduleModalTitle').textContent = '編輯排程任務';
-            document.getElementById('scheduleName').value = schedule.name;
-            document.getElementById('scheduleType').value = schedule.type;
-            document.getElementById('scheduleFrequency').value = schedule.frequency;
-            
-            // 格式化並設置執行時間（轉換為台灣時間）
-            const scheduleDate = new Date(schedule.schedule_time);
-            const taiwanTime = new Date(scheduleDate.toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
-            const formattedDateTime = taiwanTime.getFullYear() + 
-                '-' + String(taiwanTime.getMonth() + 1).padStart(2, '0') + 
-                '-' + String(taiwanTime.getDate()).padStart(2, '0') + 
-                'T' + String(taiwanTime.getHours()).padStart(2, '0') + 
-                ':' + String(taiwanTime.getMinutes()).padStart(2, '0');
-            
-            document.getElementById('scheduleTime').value = formattedDateTime;
-            
-            // 根據是否有檔案名稱來決定顯示模式
-            if (schedule.file_name) {
-                // 切換到檔案上傳模式
-                document.getElementById('sourceFile').checked = true;
-                document.getElementById('scriptTextArea').style.display = 'none';
-                document.getElementById('scriptFileArea').style.display = 'block';
-                
-                // 顯示已上傳的檔案
-                document.getElementById('scriptFileList').innerHTML = `
-                    <div class="file-item">
-                        <i class="fas fa-file-code"></i>
-                        <span class="file-name">${schedule.file_name}</span>
-                        <i class="fas fa-times remove-file" onclick="removeScriptFile()"></i>
-                    </div>
-                `;
-            } else {
-                // 切換到直接輸入模式
-                document.getElementById('sourceText').checked = true;
-                document.getElementById('scriptTextArea').style.display = 'block';
-                document.getElementById('scriptFileArea').style.display = 'none';
-                console.log('Script content:', schedule.script_content); // 調試用
-                // 設置腳本內容
-                document.getElementById('scriptContent').value = schedule.script_content;
-                console.log('Textarea value after set:', document.getElementById('scriptContent').value); // 調試用
+        // 等待模態框完全顯示後再設置腳本內容
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
+        
+        modalElement.addEventListener('shown.bs.modal', function () {
+            // 設置腳本內容
+            const scriptContentArea = document.getElementById('scriptContent');
+            if (scriptContentArea) {
+                scriptContentArea.value = schedule.script_content || '';
+                console.log('Script content set:', schedule.script_content);
             }
             
-            // 移除事件監聽器，避免重複執行
-            modal.removeEventListener('shown.bs.modal', onModalShown);
-        });
+            // 確保顯示腳本輸入區域
+            document.getElementById('sourceText').checked = true;
+            document.getElementById('scriptTextArea').style.display = 'block';
+            document.getElementById('scriptFileArea').style.display = 'none';
+        }, { once: true }); // 只執行一次
         
-        // 顯示模態框
-        const modalInstance = new bootstrap.Modal(modal);
-        modalInstance.show();
+        // 先隱藏所有時間選擇區塊
+        document.getElementById('onceTimeGroup').style.display = 'none';
+        document.getElementById('dailyTimeGroup').style.display = 'none';
+        document.getElementById('weeklyTimeGroup').style.display = 'none';
+        document.getElementById('monthlyTimeGroup').style.display = 'none';
         
+        // 設置頻率
+        const frequencySelect = document.getElementById('scheduleFrequency');
+        frequencySelect.value = schedule.frequency;
+
+        // 根據頻率類型設置時間和日期
+        const timeMatch = schedule.schedule_time.match(/\d{2}:\d{2}/);
+        const timeValue = timeMatch ? timeMatch[0] : '';
+
+        switch (schedule.frequency) {
+            case 'once':
+                document.getElementById('onceTimeGroup').style.display = 'block';
+                document.getElementById('onceDateTime').value = schedule.schedule_time.replace(' ', 'T');
+                break;
+
+            case 'daily':
+                document.getElementById('dailyTimeGroup').style.display = 'block';
+                document.getElementById('dailyTime').value = timeValue;
+                break;
+                
+            case 'weekly':
+                document.getElementById('weeklyTimeGroup').style.display = 'block';
+                document.getElementById('weeklyTime').value = timeValue;
+                
+                // 清除並設置週幾選擇
+                const weekdayCheckboxes = document.querySelectorAll('input[type="checkbox"].weekday-select');
+                weekdayCheckboxes.forEach(checkbox => {
+                    const dayValue = parseInt(checkbox.value);
+                    checkbox.checked = schedule.selected_days.includes(dayValue);
+                    console.log(`Setting weekday ${dayValue} to:`, checkbox.checked);
+                });
+                break;
+                
+            case 'monthly':
+                document.getElementById('monthlyTimeGroup').style.display = 'block';
+                document.getElementById('monthlyTime').value = timeValue;
+                
+                // 清除並設置月份日期選擇
+                const monthDayCheckboxes = document.querySelectorAll('input[type="checkbox"].monthly-day-select');
+                monthDayCheckboxes.forEach(checkbox => {
+                    const dayValue = parseInt(checkbox.value);
+                    checkbox.checked = schedule.selected_days.includes(dayValue);
+                    console.log(`Setting monthly day ${dayValue} to:`, checkbox.checked);
+                });
+                break;
+        }
+
     } catch (error) {
-        console.error('Edit Error:', error);
+        console.error('Error editing schedule:', error);
         await Swal.fire({
             icon: 'error',
             title: '錯誤',
-            text: '載入排程資訊失敗: ' + error.message
+            text: `編輯排程時發生錯誤: ${error.message}`
         });
     }
 }
@@ -1675,21 +1833,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化腳本來源切換功能
     initScriptSourceToggle();
     
-    // 打開模態框時重置表單
-    document.getElementById('scheduleModal').addEventListener('show.bs.modal', function () {
-        const scriptTextArea = document.getElementById('scriptTextArea');
-        const scriptFileArea = document.getElementById('scriptFileArea');
-        
-        // 重置為預設狀態
-        scriptTextArea.style.display = 'block';
-        scriptFileArea.style.display = 'none';
-        document.getElementById('sourceText').checked = true;
-        document.getElementById('scriptContent').value = '';
-        document.getElementById('scriptFile').value = '';
-        document.getElementById('scriptFileList').innerHTML = '';
-        scriptContent = '';
-    });
-
     // 綁定搜尋輸入框事件
     const searchInput = document.getElementById('scheduleSearch');
     if (searchInput) {
@@ -1734,4 +1877,39 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // 初始化月份日期選擇器
+    function initMonthlyDayPicker() {
+        const container = document.querySelector('#monthlyTimeGroup .btn-group');
+        container.innerHTML = '';
+        
+        // 生成1-31日的選項
+        for (let i = 1; i <= 31; i++) {
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.className = 'btn-check monthly-day-select';
+            input.id = `monthDay${i}`;
+            input.value = i;
+
+            const label = document.createElement('label');
+            label.className = 'btn btn-outline-primary';
+            label.htmlFor = `monthDay${i}`;
+            label.textContent = i + '日';
+
+            container.appendChild(input);
+            container.appendChild(label);
+        }
+    }
+
+    // 初始化月份日期選擇器
+    initMonthlyDayPicker();
+
+    // 綁定頻率選擇變更事件
+    const frequencySelect = document.getElementById('scheduleFrequency');
+    if (frequencySelect) {
+        frequencySelect.addEventListener('change', toggleScheduleTimeOptions);
+    }
+
+    // 初始化時間選擇器
+    toggleScheduleTimeOptions();
 });

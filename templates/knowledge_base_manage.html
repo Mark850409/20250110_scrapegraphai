@@ -297,8 +297,52 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label required">執行時間</label>
-                        <input type="datetime-local" class="form-control" id="scheduleTime" required>
+                        <div id="scheduleTimeGroup">
+                            <!-- 單次執行時間 -->
+                            <div id="onceTimeGroup">
+                                <label class="form-label required">執行時間</label>
+                                <input type="datetime-local" class="form-control" id="onceDateTime">
+                            </div>
+
+                            <!-- 每日執行時間 -->
+                            <div id="dailyTimeGroup" style="display: none;">
+                                <label class="form-label required">執行時間</label>
+                                <input type="time" class="form-control" id="dailyTime">
+                            </div>
+
+                            <!-- 每週執行時間 -->
+                            <div id="weeklyTimeGroup" style="display: none;">
+                                <label class="form-label required">執行時間</label>
+                                <input type="time" class="form-control mb-2" id="weeklyTime">
+                                <label class="form-label required">執行日期</label>
+                                <div class="btn-group d-flex flex-wrap" role="group">
+                                    <input type="checkbox" class="btn-check weekday-select" id="weekday0" value="0">
+                                    <label class="btn btn-outline-primary" for="weekday0">週日</label>
+                                    <input type="checkbox" class="btn-check weekday-select" id="weekday1" value="1">
+                                    <label class="btn btn-outline-primary" for="weekday1">週一</label>
+                                    <input type="checkbox" class="btn-check weekday-select" id="weekday2" value="2">
+                                    <label class="btn btn-outline-primary" for="weekday2">週二</label>
+                                    <input type="checkbox" class="btn-check weekday-select" id="weekday3" value="3">
+                                    <label class="btn btn-outline-primary" for="weekday3">週三</label>
+                                    <input type="checkbox" class="btn-check weekday-select" id="weekday4" value="4">
+                                    <label class="btn btn-outline-primary" for="weekday4">週四</label>
+                                    <input type="checkbox" class="btn-check weekday-select" id="weekday5" value="5">
+                                    <label class="btn btn-outline-primary" for="weekday5">週五</label>
+                                    <input type="checkbox" class="btn-check weekday-select" id="weekday6" value="6">
+                                    <label class="btn btn-outline-primary" for="weekday6">週六</label>
+                                </div>
+                            </div>
+
+                            <!-- 每月執行時間 -->
+                            <div id="monthlyTimeGroup" style="display: none;">
+                                <label class="form-label required">執行時間</label>
+                                <input type="time" class="form-control mb-2" id="monthlyTime">
+                                <label class="form-label required">執行日期</label>
+                                <div class="btn-group d-flex flex-wrap" role="group">
+                                    <!-- 1-31日的選項會由 JavaScript 動態生成 -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
