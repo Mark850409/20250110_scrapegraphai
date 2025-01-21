@@ -1,3 +1,1001 @@
+// 將函數移到全局作用域
+let currentScheduleId = null;
+let scriptContent = '';
+
+// 添加定時更新功能
+let updateInterval;
+
+// 開啟新增排程模態框
+function openAddScheduleModal() {
+    currentScheduleId = null;
+    document.getElementById('scheduleModalTitle').textContent = '新增排程任務';
+    document.getElementById('scheduleForm').reset();
+    const modal = new bootstrap.Modal(document.getElementById('scheduleModal'));
+    modal.show();
+}
+
+// 初始化腳本來源切換和拖放功能
+function initScriptSourceToggle() {
+    const scriptSourceRadios = document.getElementsByName('scriptSource');
+    const scriptTextArea = document.getElementById('scriptTextArea');
+    const scriptFileArea = document.getElementById('scriptFileArea');
+    const scriptContentTextarea = document.getElementById('scriptContent');
+    const dropZone = document.getElementById('scriptDropZone');
+    const fileInput = document.getElementById('scriptFile');
+    const fileList = document.getElementById('scriptFileList');
+    
+    // 確保初始狀態
+    scriptTextArea.style.display = 'block';
+    scriptFileArea.style.display = 'none';
+    document.getElementById('sourceText').checked = true;
+    
+    // 切換腳本來源
+    scriptSourceRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.value === 'text') {
+                scriptTextArea.style.display = 'block';
+                scriptFileArea.style.display = 'none';
+                // 確保顯示腳本內容
+                scriptContentTextarea.value = scriptContent;
+                console.log('Switch to text mode, content:', scriptContentTextarea.value); // 調試用
+            } else {
+                scriptTextArea.style.display = 'none';
+                scriptFileArea.style.display = 'block';
+            }
+        });
+    });
+
+    // 拖放功能
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    dropZone.addEventListener('drop', handleDrop, false);
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', handleFileSelect);
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function highlight(e) {
+        dropZone.classList.add('dragover');
+    }
+
+    function unhighlight(e) {
+        dropZone.classList.remove('dragover');
+    }
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const file = dt.files[0];
+        handleFile(file);
+    }
+
+    function handleFileSelect(e) {
+        const file = e.target.files[0];
+        handleFile(file);
+    }
+
+    function handleFile(file) {
+        if (!file) return;
+
+        // 檢查檔案類型
+        const fileType = file.name.split('.').pop().toLowerCase();
+        const scriptType = document.getElementById('scheduleType').value;
+        
+        if (!isValidFileType(fileType, scriptType)) {
+            Swal.fire({
+                icon: 'error',
+                title: '錯誤',
+                text: `請上傳與執行類型相符的檔案（${scriptType}）`
+            });
+            return;
+        }
+
+        // 更新檔案列表顯示
+        fileList.innerHTML = `
+            <div class="file-item">
+                <i class="fas fa-file-code"></i>
+                <span class="file-name">${file.name}</span>
+                <i class="fas fa-times remove-file" onclick="removeScriptFile()"></i>
+            </div>
+        `;
+
+        // 讀取檔案內容
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            scriptContent = e.target.result;
+            if (!await validateScript(scriptContent, scriptType)) {
+                fileList.innerHTML = '';
+                scriptContent = '';
+            }
+        };
+        reader.readAsText(file);
+    }
+}
+
+// 移除上傳的腳本檔案
+function removeScriptFile() {
+    document.getElementById('scriptFile').value = '';
+    document.getElementById('scriptFileList').innerHTML = '';
+    // 不要清空 scriptContent，保留原始內容
+    document.getElementById('sourceText').click(); // 切換回直接輸入模式
+}
+
+// 驗證檔案類型
+function isValidFileType(fileType, scriptType) {
+    const typeMap = {
+        'python': 'py',
+        'shell': 'sh',
+        'bat': 'bat'
+    };
+    return fileType === typeMap[scriptType];
+}
+
+// 驗證腳本內容
+async function validateScript(content, type) {
+    try {
+        // 根據不同類型進行語法檢查
+        switch (type) {
+            case 'python':
+                // 使用 Python 的語法檢查
+                const response = await fetch('/api/validate_python', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ script: content })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Python 語法錯誤');
+                }
+                break;
+
+            case 'shell':
+                // Shell 腳本基本檢查
+                if (!content.trim().startsWith('#!/bin/sh') && 
+                    !content.trim().startsWith('#!/bin/bash')) {
+                    throw new Error('Shell 腳本必須以 #!/bin/sh 或 #!/bin/bash 開頭');
+                }
+                break;
+
+            case 'bat':
+                // Batch 腳本基本檢查
+                if (!content.trim().startsWith('@echo off') && 
+                    !content.includes('exit /b')) {
+                    throw new Error('Batch 腳本建議包含 @echo off 和 exit /b');
+                }
+                break;
+        }
+        return true;
+    } catch (error) {
+        await Swal.fire({
+            icon: 'error',
+            title: '語法錯誤',
+            text: error.message
+        });
+        return false;
+    }
+}
+
+// 保存排程
+async function saveSchedule() {
+    try {
+        const name = document.getElementById('scheduleName').value;
+        const type = document.getElementById('scheduleType').value;
+        const scheduleTime = document.getElementById('scheduleTime').value;
+        const frequency = document.getElementById('scheduleFrequency').value;
+        
+        // 檢查必填欄位
+        if (!name || !type || !scheduleTime || !frequency) {
+            await Swal.fire({
+                icon: 'error',
+                title: '錯誤',
+                text: '請填寫所有必填欄位'
+            });
+            return;
+        }
+
+        // 獲取腳本內容
+        let finalScriptContent = '';
+        const scriptSource = document.querySelector('input[name="scriptSource"]:checked').value;
+        
+        if (scriptSource === 'text') {
+            // 從文本區域獲取腳本內容
+            finalScriptContent = document.getElementById('scriptContent').value.trim();
+        } else {
+            // 使用上傳的腳本內容
+            finalScriptContent = scriptContent;
+        }
+
+        // 檢查腳本內容
+        if (!finalScriptContent) {
+            await Swal.fire({
+                icon: 'error',
+                title: '錯誤',
+                text: '請輸入或上傳腳本內容'
+            });
+            return;
+        }
+
+        // 準備請求數據
+        const data = {
+            name: name,
+            type: type,
+            script_content: finalScriptContent,
+            schedule_time: scheduleTime,
+            frequency: frequency,
+            status: 'stopped'  // 新建或編輯時，狀態預設為停止
+        };
+
+        // 根據是否有 currentScheduleId 決定是新增還是更新
+        const url = currentScheduleId ? 
+            `/api/schedules/${currentScheduleId}` : 
+            '/api/schedules';
+        const method = currentScheduleId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || '保存失敗');
+        }
+
+        // 關閉模態框
+        const modal = bootstrap.Modal.getInstance(document.getElementById('scheduleModal'));
+        modal.hide();
+
+        // 顯示成功訊息
+        await Swal.fire({
+            icon: 'success',
+            title: '成功',
+            text: currentScheduleId ? '排程更新成功' : '排程新增成功',
+            timer: 1500
+        });
+
+        // 重新載入排程列表
+        loadScheduleList(true);
+
+    } catch (error) {
+        console.error('Save Error:', error);
+        await Swal.fire({
+            icon: 'error',
+            title: '錯誤',
+            text: '保存排程失敗: ' + error.message
+        });
+    }
+}
+
+// 載入排程列表
+async function loadScheduleList(forceUpdate = false) {
+    try {
+        const timestamp = forceUpdate ? `?t=${Date.now()}` : '';
+        const response = await fetch('/api/schedules' + timestamp);
+        const newSchedules = await response.json();
+        
+        const tbody = document.getElementById('schedule-list');
+        if (!tbody) return;
+
+        // 獲取當前顯示的排程狀態
+        const currentSchedules = {};
+        tbody.querySelectorAll('tr').forEach(tr => {
+            const id = tr.getAttribute('data-id');
+            if (id) {
+                const statusBadge = tr.querySelector('.badge');
+                currentSchedules[id] = {
+                    id: id,
+                    status: statusBadge ? statusBadge.textContent.trim() : '',
+                    lastRun: tr.querySelector('td:nth-child(5)').textContent.trim()
+                };
+            }
+        });
+
+        // 檢查狀態變化
+        for (const schedule of newSchedules) {
+            const currentSchedule = currentSchedules[schedule.id];
+            if (currentSchedule) {
+                const statusMap = {
+                    'active': '執行中',
+                    'pending': '等待中',
+                    'completed': '已完成',
+                    'stopped': '已停止',
+                    'failed': '失敗'
+                };
+                
+                const newStatus = statusMap[schedule.status];
+                const newLastRun = schedule.last_run ? formatScheduleTime(schedule.last_run) : '-';
+                
+                // 如果狀態有變化
+                if (currentSchedule.status !== newStatus) {
+                    // 找到對應的表格行並更新
+                    const tr = tbody.querySelector(`tr[data-id="${schedule.id}"]`);
+                    if (tr) {
+                        // 更新狀態
+                        const statusCell = tr.querySelector('td:nth-child(4)');
+                        statusCell.innerHTML = `
+                            ${getStatusBadge(schedule.status)}
+                            ${schedule.error_message ? 
+                                `<span class="text-danger ms-2" title="${escapeHtml(schedule.error_message)}">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                </span>` : 
+                                ''}
+                        `;
+                        
+                        // 更新最後執行時間
+                        const lastRunCell = tr.querySelector('td:nth-child(5)');
+                        lastRunCell.textContent = newLastRun;
+
+                        // 只在完成或失敗時顯示一次通知
+                        if (newStatus === '已完成' || newStatus === '失敗') {
+                            showStatusChangeNotification(
+                                schedule.name,
+                                currentSchedule.status,
+                                newStatus,
+                                schedule.result,
+                                schedule.error_message
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // 保持原有的表格更新邏輯
+        tbody.innerHTML = '';
+        if (newSchedules.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">目前沒有排程任務</td></tr>';
+            return;
+        }
+
+        newSchedules.forEach(schedule => {
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-id', schedule.id);
+            
+            tr.innerHTML = `
+                <td>${escapeHtml(schedule.name)}</td>
+                <td>${getScheduleTypeName(schedule.type)}</td>
+                <td>${formatScheduleTime(schedule.schedule_time)} (${getScheduleFrequencyName(schedule.frequency)})</td>
+                <td>
+                    ${getStatusBadge(schedule.status)}
+                    ${schedule.error_message ? 
+                        `<span class="text-danger ms-2" title="${escapeHtml(schedule.error_message)}">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </span>` : 
+                        ''}
+                </td>
+                <td>${schedule.last_run ? formatScheduleTime(schedule.last_run) : '-'}</td>
+                <td>
+                    ${createActionButtons(schedule)}
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (error) {
+        console.error('Error:', error);
+        await Swal.fire({
+            icon: 'error',
+            title: '錯誤',
+            text: '載入排程列表失敗'
+        });
+    }
+}
+
+// 輔助函數
+function getScheduleTypeName(type) {
+    const types = {
+        'python': 'Python 腳本',
+        'shell': 'Shell 腳本',
+        'bat': 'Batch 腳本'
+    };
+    return types[type] || type;
+}
+
+function getScheduleFrequencyName(frequency) {
+    const frequencies = {
+        'once': '單次執行',
+        'daily': '每日執行',
+        'weekly': '每週執行',
+        'monthly': '每月執行'
+    };
+    return frequencies[frequency] || frequency;
+}
+
+function formatScheduleTime(timeStr) {
+    if (!timeStr) return '-';
+    try {
+        const date = new Date(timeStr);
+        return date.toLocaleString('zh-TW', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZone: 'Asia/Taipei'
+        });
+    } catch (e) {
+        console.error('日期格式化錯誤:', e);
+        return timeStr;
+    }
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'active': '<span class="badge bg-warning">執行中</span>',
+        'pending': '<span class="badge bg-info">等待中</span>',
+        'completed': '<span class="badge bg-success">已完成</span>',
+        'stopped': '<span class="badge bg-secondary">已停止</span>',
+        'failed': '<span class="badge bg-danger">失敗</span>'
+    };
+    return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
+
+// 防止 XSS 攻擊的輔助函數
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// 編輯排程
+async function editSchedule(id) {
+    try {
+        currentScheduleId = id;
+        
+        const response = await fetch(`/api/schedules/${id}`);
+        if (!response.ok) {
+            throw new Error('獲取排程資訊失敗');
+        }
+        
+        const schedule = await response.json();
+        console.log('Loaded schedule:', schedule);
+        
+        // 先保存腳本內容到全局變量
+        scriptContent = schedule.script_content;
+        
+        // 獲取模態框元素
+        const modal = document.getElementById('scheduleModal');
+        
+        // 監聽模態框完全顯示後的事件
+        modal.addEventListener('shown.bs.modal', function onModalShown() {
+            // 設置表單值
+            document.getElementById('scheduleModalTitle').textContent = '編輯排程任務';
+            document.getElementById('scheduleName').value = schedule.name;
+            document.getElementById('scheduleType').value = schedule.type;
+            document.getElementById('scheduleFrequency').value = schedule.frequency;
+            
+            // 格式化並設置執行時間（轉換為台灣時間）
+            const scheduleDate = new Date(schedule.schedule_time);
+            const taiwanTime = new Date(scheduleDate.toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+            const formattedDateTime = taiwanTime.getFullYear() + 
+                '-' + String(taiwanTime.getMonth() + 1).padStart(2, '0') + 
+                '-' + String(taiwanTime.getDate()).padStart(2, '0') + 
+                'T' + String(taiwanTime.getHours()).padStart(2, '0') + 
+                ':' + String(taiwanTime.getMinutes()).padStart(2, '0');
+            
+            document.getElementById('scheduleTime').value = formattedDateTime;
+            
+            // 根據是否有檔案名稱來決定顯示模式
+            if (schedule.file_name) {
+                // 切換到檔案上傳模式
+                document.getElementById('sourceFile').checked = true;
+                document.getElementById('scriptTextArea').style.display = 'none';
+                document.getElementById('scriptFileArea').style.display = 'block';
+                
+                // 顯示已上傳的檔案
+                document.getElementById('scriptFileList').innerHTML = `
+                    <div class="file-item">
+                        <i class="fas fa-file-code"></i>
+                        <span class="file-name">${schedule.file_name}</span>
+                        <i class="fas fa-times remove-file" onclick="removeScriptFile()"></i>
+                    </div>
+                `;
+            } else {
+                // 切換到直接輸入模式
+                document.getElementById('sourceText').checked = true;
+                document.getElementById('scriptTextArea').style.display = 'block';
+                document.getElementById('scriptFileArea').style.display = 'none';
+                console.log('Script content:', schedule.script_content); // 調試用
+                // 設置腳本內容
+                document.getElementById('scriptContent').value = schedule.script_content;
+                console.log('Textarea value after set:', document.getElementById('scriptContent').value); // 調試用
+            }
+            
+            // 移除事件監聽器，避免重複執行
+            modal.removeEventListener('shown.bs.modal', onModalShown);
+        });
+        
+        // 顯示模態框
+        const modalInstance = new bootstrap.Modal(modal);
+        modalInstance.show();
+        
+    } catch (error) {
+        console.error('Edit Error:', error);
+        await Swal.fire({
+            icon: 'error',
+            title: '錯誤',
+            text: '載入排程資訊失敗: ' + error.message
+        });
+    }
+}
+
+// 添加一個時間格式化輔助函數
+function formatTaiwanDateTime(dateString) {
+    const date = new Date(dateString);
+    // 調整為台灣時間 (GMT+8)
+    const twTime = new Date(date.getTime() + (8 * 60 * 60 * 1000));
+    
+    // 格式化年月日時分
+    const year = twTime.getFullYear();
+    const month = String(twTime.getMonth() + 1).padStart(2, '0');
+    const day = String(twTime.getDate()).padStart(2, '0');
+    const hours = String(twTime.getHours()).padStart(2, '0');
+    const minutes = String(twTime.getMinutes()).padStart(2, '0');
+    
+    return `${year}/${month}/${day} ${hours}:${minutes}`;
+}
+
+// 停止排程
+async function stopSchedule(id) {
+    try {
+        const result = await Swal.fire({
+            title: '確認停止',
+            text: '確定要停止這個排程嗎？',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '確定',
+            cancelButtonText: '取消'
+        });
+
+        if (result.isConfirmed) {
+            const response = await fetch(`/api/schedules/${id}/stop`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || '停止排程失敗');
+            }
+
+            // 顯示 toast 提示
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: '排程已停止',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+
+            await loadScheduleList(true);  // 強制更新列表
+        }
+    } catch (error) {
+        console.error('Stop Error:', error);
+        await Swal.fire({
+            icon: 'error',
+            title: '錯誤',
+            text: '停止排程失敗: ' + error.message
+        });
+    }
+}
+
+// 刪除排程
+async function deleteSchedule(id) {
+    try {
+        const result = await Swal.fire({
+            title: '確認刪除',
+            text: '確定要刪除這個排程嗎？',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '確定',
+            cancelButtonText: '取消'
+        });
+
+        if (result.isConfirmed) {
+            // 直接刪除排程
+            const response = await fetch(`/api/schedules/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || '刪除失敗');
+            }
+
+            await Swal.fire({
+                icon: 'success',
+                title: '成功',
+                text: '排程已刪除'
+            });
+            
+            await loadScheduleList(true);  // 強制更新列表
+        }
+    } catch (error) {
+        console.error('Delete Error:', error);
+        await Swal.fire({
+            icon: 'error',
+            title: '錯誤',
+            text: '刪除排程失敗: ' + error.message
+        });
+    }
+}
+
+// 修改定時更新函數
+function startAutoUpdate() {
+    // 立即執行一次，並強制更新
+    loadScheduleList(true);
+    
+    // 每5秒更新一次
+    updateInterval = setInterval(async () => {
+        await loadScheduleList(true);
+    }, 5000);  // 更頻繁的檢查
+}
+
+// 停止定時更新
+function stopAutoUpdate() {
+    if (updateInterval) {
+        clearInterval(updateInterval);
+    }
+}
+
+// 修改狀態變化通知函數
+function showStatusChangeNotification(name, oldStatus, newStatus, result, error) {
+    const statusMessages = {
+        '等待中': '等待中',
+        '執行中': '執行中',
+        '已完成': '已完成',
+        '失敗': '執行失敗'
+    };
+
+    let icon = 'info';
+    let message = `任務 "${name}" `;
+
+    if (newStatus === '已完成' || newStatus === '失敗') {
+        if (newStatus === '已完成') {
+            icon = 'success';
+            if (result) {
+                message += `執行完成`;
+            }
+        } else {
+            icon = 'error';
+            if (error) {
+                message += `執行失敗`;
+            }
+        }
+
+        // 當任務完成或失敗時，顯示通知後重新整理頁面
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: icon,
+            title: '排程狀態更新',
+            text: message,
+            showConfirmButton: false,
+            timer: 5000,
+            timerProgressBar: true
+        })
+    } else {
+        // 其他狀態只顯示通知，不重新整理
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: icon,
+            title: '排程狀態更新',
+            text: message,
+            showConfirmButton: false,
+            timer: 5000,
+            timerProgressBar: true
+        });
+    }
+}
+
+// 修改 restartSchedule 函數，添加狀態檢查
+async function restartSchedule(id) {
+    try {
+        // 先檢查當前狀態
+        const response = await fetch(`/api/schedules/${id}`);
+        if (!response.ok) {
+            throw new Error('獲取排程資訊失敗');
+        }
+        const schedule = await response.json();
+        
+        if (schedule.status === 'failed') {
+            await Swal.fire({
+                icon: 'error',
+                title: '無法啟用',
+                text: '失敗的排程無法啟用，請編輯修正後再試'
+            });
+            return;
+        }
+
+        // 原有的確認邏輯
+        const result = await Swal.fire({
+            title: '確認啟用',
+            text: '確定要啟用這個排程嗎？',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '確定',
+            cancelButtonText: '取消'
+        });
+
+        if (result.isConfirmed) {
+            const response = await fetch(`/api/schedules/${id}/restart`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || '啟用排程失敗');
+            }
+
+            // 顯示 toast 提示
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: '排程已啟用',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+
+            await loadScheduleList(true);  // 強制更新列表
+        }
+    } catch (error) {
+        console.error('Restart Error:', error);
+        await Swal.fire({
+            icon: 'error',
+            title: '錯誤',
+            text: '啟用排程失敗: ' + error.message
+        });
+    }
+}
+
+// 修改 runScheduleNow 函數，添加狀態檢查
+async function runScheduleNow(id) {
+    try {
+        // 先檢查當前狀態
+        const response = await fetch(`/api/schedules/${id}`);
+        if (!response.ok) {
+            throw new Error('獲取排程資訊失敗');
+        }
+        const schedule = await response.json();
+        
+        if (schedule.status === 'failed') {
+            await Swal.fire({
+                icon: 'error',
+                title: '無法執行',
+                text: '失敗的排程無法執行，請編輯修正後再試'
+            });
+            return;
+        }
+
+        // 原有的確認邏輯
+        const result = await Swal.fire({
+            title: '確認執行',
+            text: '確定要立即執行這個排程嗎？',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '確定',
+            cancelButtonText: '取消'
+        });
+
+        if (result.isConfirmed) {
+            const response = await fetch(`/api/schedules/${id}/run`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || '執行排程失敗');
+            }
+
+            // 顯示 toast 提示
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: '排程開始執行',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+
+            await loadScheduleList(true);  // 強制更新列表
+        }
+    } catch (error) {
+        console.error('Run Now Error:', error);
+        await Swal.fire({
+            icon: 'error',
+            title: '錯誤',
+            text: '執行排程失敗: ' + error.message
+        });
+    }
+}
+
+// 查看執行日誌
+async function viewLogs(scheduleId) {
+    try {
+        const response = await fetch(`/api/schedules/${scheduleId}/logs`);
+        if (!response.ok) {
+            throw new Error('獲取日誌失敗');
+        }
+        
+        const logs = await response.json();
+        const tbody = document.getElementById('logsTableBody');
+        tbody.innerHTML = '';
+        
+        if (logs.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center">尚無執行記錄</td>
+                </tr>
+            `;
+        } else {
+            logs.forEach(log => {
+                tbody.innerHTML += `
+                    <tr class="${getStatusClass(log.status)}">
+                        <td>${formatDateTime(log.execution_time)}</td>
+                        <td>
+                            <span class="badge ${getStatusBadgeClass(log.status)}">
+                                ${getStatusText(log.status)}
+                            </span>
+                        </td>
+                        <td>
+                            <pre class="mb-0"><code>${escapeHtml(log.content)}</code></pre>
+                        </td>
+                        <td>${formatDuration(log.duration)}</td>
+                        <td>${log.error_message ? `<pre class="text-danger mb-0"><code>${escapeHtml(log.error_message)}</code></pre>` : '-'}</td>
+                    </tr>
+                `;
+            });
+        }
+        
+        // 顯示模態框
+        const modal = new bootstrap.Modal(document.getElementById('logsModal'));
+        modal.show();
+        
+    } catch (error) {
+        console.error('View Logs Error:', error);
+        await Swal.fire({
+            icon: 'error',
+            title: '錯誤',
+            text: '獲取日誌失敗: ' + error.message
+        });
+    }
+}
+
+// 格式化日期時間 (用於執行日誌)
+function formatDateTime(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleString('zh-TW', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false // 使用24小時制
+    });
+}
+
+// 格式化執行時長
+function formatDuration(duration) {
+    if (!duration) return '-';
+    return `${duration.toFixed(2)}秒`;
+}
+
+// 獲取狀態對應的樣式
+function getStatusClass(status) {
+    switch (status) {
+        case 'success': return 'table-success';
+        case 'failed': return 'table-danger';
+        case 'running': return 'table-warning';
+        default: return '';
+    }
+}
+
+// 獲取狀態標籤的樣式
+function getStatusBadgeClass(status) {
+    switch (status) {
+        case 'success': return 'bg-success';
+        case 'failed': return 'bg-danger';
+        case 'running': return 'bg-warning';
+        default: return 'bg-secondary';
+    }
+}
+
+// 獲取狀態文字
+function getStatusText(status) {
+    switch (status) {
+        case 'success': return '成功';
+        case 'failed': return '失敗';
+        case 'running': return '執行中';
+        default: return status;
+    }
+}
+
+function createActionButtons(schedule) {
+    const { id, status } = schedule;
+    const isActive = status === 'active' || status === 'running';
+    const isPending = status === 'pending';
+    const isStopped = status === 'stopped';
+    const isCompleted = status === 'completed';
+    const isFailed = status === 'failed';
+
+    // 按鈕啟用邏輯
+    const canEdit = isFailed||isStopped;  // 只有已停止狀態可以編輯
+    const canDelete = isStopped || isFailed;  // 已停止和失敗可以刪除
+    const canRestart = isCompleted;  // 已停止和已完成可以啟用
+    const canRun = isActive || isStopped || isCompleted;  // 已停止和已完成可以執行
+    const canStop = isActive || isCompleted;  // 運行中和已完成可以停止
+
+    return `
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-primary" onclick="editSchedule(${id})" 
+                ${canEdit ? '' : 'disabled'} title="編輯">
+                <i class="fas fa-edit"></i>
+            </button>
+            ${canStop ? `
+                <button class="btn btn-sm btn-dark" onclick="stopSchedule(${id})"
+                    title="停止">
+                    <i class="fas fa-square"></i>
+                </button>
+            ` : `
+                <button class="btn btn-sm btn-success" onclick="restartSchedule(${id})"
+                    ${canRestart ? '' : 'disabled'} title="啟用">
+                    <i class="fas fa-play"></i>
+                </button>
+            `}
+            <button class="btn btn-sm btn-info" onclick="runScheduleNow(${id})"
+                ${canRun ? '' : 'disabled'} title="立即執行">
+                <i class="fas fa-play-circle"></i>
+            </button>
+            <button class="btn btn-sm btn-secondary" onclick="viewLogs(${id})" 
+                title="查看日誌">
+                <i class="fas fa-list-alt"></i>
+            </button>
+            <button class="btn btn-sm btn-danger" onclick="deleteSchedule(${id})"
+                ${canDelete ? '' : 'disabled'} title="刪除">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -590,4 +1588,58 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 初始化時設置控制元素的顯示狀態
     updateControlsVisibility();
+
+    // 移除原本的頁籤監聽，改為直接載入
+    loadScheduleList();  // 直接載入排程列表
+
+    // 檢查當前頁面是否在知識庫爬取頁面
+    function isInCrawlerPage() {
+        const activeTab = document.querySelector('button#crawler-tab.nav-link.active');
+        return window.location.pathname.includes('/knowledge_base_manage') && activeTab !== null;
+    }
+
+    // 使用 Bootstrap 的 tab 事件
+    const tabs = document.querySelectorAll('button[data-bs-toggle="tab"]');
+    tabs.forEach(tab => {
+        tab.addEventListener('shown.bs.tab', function(event) {
+            const targetTab = event.target.getAttribute('data-bs-target');
+            console.log('Tab shown:', targetTab);
+            
+            // 停止當前的自動更新
+            stopAutoUpdate();
+            
+            // 檢查是否切換到知識庫爬取頁籤
+            if (targetTab === '#crawler') {
+                console.log('Starting auto update for crawler tab');
+                loadScheduleList();
+                startAutoUpdate();
+            }
+        });
+    });
+
+    // 在頁面載入時檢查並啟動自動更新
+    console.log('Initial page check:', isInCrawlerPage());
+    if (isInCrawlerPage()) {
+        console.log('Starting auto update on page load');
+        loadScheduleList();
+        startAutoUpdate();
+    }
+
+    // 初始化腳本來源切換功能
+    initScriptSourceToggle();
+    
+    // 打開模態框時重置表單
+    document.getElementById('scheduleModal').addEventListener('show.bs.modal', function () {
+        const scriptTextArea = document.getElementById('scriptTextArea');
+        const scriptFileArea = document.getElementById('scriptFileArea');
+        
+        // 重置為預設狀態
+        scriptTextArea.style.display = 'block';
+        scriptFileArea.style.display = 'none';
+        document.getElementById('sourceText').checked = true;
+        document.getElementById('scriptContent').value = '';
+        document.getElementById('scriptFile').value = '';
+        document.getElementById('scriptFileList').innerHTML = '';
+        scriptContent = '';
+    });
 });

@@ -7,3 +7,7 @@ google-generativeai
 dnspython
 langchain-google-genai
 playwright
+APScheduler==3.10.4
+pytz==2023.3.post1
+SQLAlchemy==2.0.23
+Werkzeug>=2.0.1

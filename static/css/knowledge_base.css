@@ -393,3 +393,54 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* 拖放區域樣式 */
+.drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.drop-zone:hover, .drop-zone.dragover {
+    border-color: #0d6efd;
+    background-color: #e9ecef;
+}
+
+.drop-zone-content {
+    color: #6c757d;
+}
+
+.drop-zone-content i {
+    color: #0d6efd;
+}
+
+/* 檔案列表樣式 */
+#scriptFileList {
+    margin-top: 10px;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    margin-bottom: 5px;
+}
+
+.file-item i {
+    margin-right: 8px;
+}
+
+.file-item .file-name {
+    flex-grow: 1;
+}
+
+.file-item .remove-file {
+    color: #dc3545;
+    cursor: pointer;
+}

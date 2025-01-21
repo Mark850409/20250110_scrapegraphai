@@ -13,10 +13,12 @@ from dotenv import load_dotenv
 from typing import List
 import google.generativeai as genai
 from sqlalchemy import func
-import openai
 from openai import OpenAI
-import csv
-import io
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
+import pytz
 
 app = Flask(__name__)
 load_dotenv()
@@ -31,16 +33,37 @@ model = genai.GenerativeModel('gemini-pro')
 # 初始化資料庫
 def init_db():
     conn = sqlite3.connect('scripts.db')
-    c = conn.cursor()
+    c = conn.cursor()   
+    # 重新建立表格
     c.execute('''
-        CREATE TABLE IF NOT EXISTS script_records
-        (id INTEGER PRIMARY KEY AUTOINCREMENT,
-         timestamp TEXT NOT NULL,
-         duration REAL NOT NULL,
-         script TEXT NOT NULL,
-         url TEXT NOT NULL,
-         prompt TEXT NOT NULL)
+        CREATE TABLE IF NOT EXISTS schedules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL,
+            script_content TEXT NOT NULL,
+            schedule_time DATETIME NOT NULL,
+            frequency TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            last_run DATETIME,
+            result TEXT,
+            error_message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            file_name TEXT  -- 添加新欄位
+        )
     ''')
+
+    # 建立其他必要的表格
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS script_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            duration REAL NOT NULL,
+            script TEXT NOT NULL,
+            url TEXT NOT NULL,
+            prompt TEXT NOT NULL
+        )
+    ''')
+    
     c.execute('''
         CREATE TABLE IF NOT EXISTS quick_questions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,6 +72,27 @@ def init_db():
             status INTEGER DEFAULT 1
         )
     ''')
+    
+    # 檢查是否需要添加 file_name 欄位
+    c.execute("PRAGMA table_info(schedules)")
+    columns = [column[1] for column in c.fetchall()]
+    if 'file_name' not in columns:
+        c.execute('ALTER TABLE schedules ADD COLUMN file_name TEXT')
+    
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS schedule_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            schedule_id INTEGER NOT NULL,
+            execution_time DATETIME NOT NULL,
+            status TEXT NOT NULL,
+            content TEXT NOT NULL,
+            duration REAL,
+            error_message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (schedule_id) REFERENCES schedules(id)
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 
@@ -2127,6 +2171,583 @@ def get_chat_config():
         return jsonify({
             'error': str(e)
         }), 500
+
+# 初始化排程器
+scheduler = BackgroundScheduler(timezone=pytz.timezone('Asia/Taipei'))
+scheduler.start()
+
+# API 路由
+@app.route('/api/schedules', methods=['GET'])
+def get_schedules():
+    try:
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        c.execute('''
+            SELECT id, name, type, script_content, schedule_time, 
+                   frequency, status, last_run, result, error_message, created_at 
+            FROM schedules 
+            ORDER BY created_at DESC
+        ''')
+        
+        schedules = []
+        for row in c.fetchall():
+            schedules.append({
+                'id': row[0],
+                'name': row[1],
+                'type': row[2],
+                'script_content': row[3],
+                'schedule_time': row[4],
+                'frequency': row[5],
+                'status': row[6],
+                'last_run': row[7],
+                'result': row[8],
+                'error_message': row[9],
+                'created_at': row[10]
+            })
+        
+        return jsonify(schedules)
+    except Exception as e:
+        print(f"Error fetching schedules: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/schedules', methods=['POST'])
+@app.route('/api/schedules/<int:schedule_id>', methods=['PUT'])
+def save_schedule(schedule_id=None):
+    try:
+        data = request.get_json()
+        
+        # 驗證必要欄位
+        required_fields = ['name', 'type', 'script_content', 'schedule_time', 'frequency']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'error': f'缺少必要欄位: {field}'}), 400
+        
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        
+        try:
+            # 如果是更新，先移除舊的排程
+            if schedule_id and scheduler.get_job(f'schedule_{schedule_id}'):
+                scheduler.remove_job(f'schedule_{schedule_id}')
+
+            # 設定初始狀態為 'pending'
+            initial_status = 'pending'
+
+            if schedule_id:  # 更新現有排程
+                c.execute('''
+                    UPDATE schedules 
+                    SET name = ?, type = ?, script_content = ?, 
+                        schedule_time = ?, frequency = ?, status = ?
+                    WHERE id = ?
+                ''', (
+                    data['name'], data['type'], data['script_content'],
+                    data['schedule_time'], data['frequency'], 
+                    data.get('status', initial_status),  # 使用傳入的狀態或預設狀態
+                    schedule_id
+                ))
+                job_id = schedule_id
+            else:  # 新增排程
+                c.execute('''
+                    INSERT INTO schedules 
+                    (name, type, script_content, schedule_time, frequency, status)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (
+                    data['name'], data['type'], data['script_content'],
+                    data['schedule_time'], data['frequency'], initial_status
+                ))
+                job_id = c.lastrowid
+
+            # 添加新的排程任務
+            schedule_time = datetime.strptime(data['schedule_time'], '%Y-%m-%dT%H:%M')
+            if data['frequency'] == 'once':
+                trigger = DateTrigger(
+                    run_date=schedule_time,
+                    timezone=pytz.timezone('Asia/Taipei')
+                )
+            else:
+                # 解析時間為 cron 表達式
+                cron_parts = {
+                    'hour': schedule_time.hour,
+                    'minute': schedule_time.minute,
+                }
+                if data['frequency'] == 'daily':
+                    pass  # 使用預設的每日執行
+                elif data['frequency'] == 'weekly':
+                    cron_parts['day_of_week'] = schedule_time.weekday()
+                elif data['frequency'] == 'monthly':
+                    cron_parts['day'] = schedule_time.day
+
+                trigger = CronTrigger(
+                    **cron_parts,
+                    timezone=pytz.timezone('Asia/Taipei')
+                )
+
+            # 立即添加排程任務
+            scheduler.add_job(
+                execute_script,
+                trigger=trigger,
+                args=[job_id, data['type'], data['script_content']],
+                id=f'schedule_{job_id}',
+                replace_existing=True
+            )
+
+            conn.commit()
+            return jsonify({'message': '保存成功'}), 200
+            
+        except Exception as e:
+            conn.rollback()
+            return jsonify({'error': f'保存失敗: {str(e)}'}), 500
+            
+        finally:
+            conn.close()
+            
+    except Exception as e:
+        return jsonify({'error': f'保存失敗: {str(e)}'}), 500
+
+@app.route('/api/schedules/<int:schedule_id>', methods=['GET'])
+def get_schedule(schedule_id):
+    try:
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        
+        # 獲取排程詳細資訊
+        c.execute('''
+            SELECT id, name, type, script_content, schedule_time, 
+                   frequency, status, last_run, result, error_message, 
+                   created_at, file_name 
+            FROM schedules 
+            WHERE id = ?
+        ''', (schedule_id,))
+        
+        row = c.fetchone()
+        if not row:
+            return jsonify({'error': '找不到排程'}), 404
+            
+        schedule = {
+            'id': row[0],
+            'name': row[1],
+            'type': row[2],
+            'script_content': row[3],
+            'schedule_time': row[4],
+            'frequency': row[5],
+            'status': row[6],
+            'last_run': row[7],
+            'result': row[8],
+            'error_message': row[9],
+            'created_at': row[10],
+            'file_name': row[11] if row[11] else ''
+        }
+        
+        print(f"Returning schedule: {schedule}")  # 用於調試
+        return jsonify(schedule)
+        
+    except Exception as e:
+        print(f"Error fetching schedule: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+@app.route('/api/schedules/<int:id>', methods=['PUT'])
+def update_schedule(id):
+    try:
+        data = request.get_json()
+        name = data['name']
+        type = data['type']
+        script_content = data['script_content']
+        schedule_time = datetime.fromisoformat(data['schedule_time'].replace('Z', '+00:00'))
+        frequency = data['frequency']
+        file_name = data.get('file_name', '')  # 獲取檔案名稱，預設為空字串
+        
+        # 轉換為台灣時間
+        tw = pytz.timezone('Asia/Taipei')
+        schedule_time = schedule_time.astimezone(tw)
+        
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        c.execute('''
+            UPDATE schedules 
+            SET name = ?, type = ?, script_content = ?, 
+                schedule_time = ?, frequency = ?, file_name = ?
+            WHERE id = ?
+        ''', (name, type, script_content, schedule_time, frequency, file_name, id))
+        conn.commit()
+        
+        # 更新排程器
+        job_id = f'schedule_{id}'
+        if job_id in scheduler:
+            scheduler.remove_job(job_id)
+            
+        if frequency == 'once':
+            scheduler.add_job(
+                execute_script,
+                'date',
+                run_date=schedule_time,
+                args=[id, type, script_content],
+                id=job_id
+            )
+        else:
+            trigger = {
+                'daily': {'trigger': 'cron', 'hour': schedule_time.hour, 'minute': schedule_time.minute},
+                'weekly': {'trigger': 'cron', 'day_of_week': schedule_time.weekday(), 'hour': schedule_time.hour, 'minute': schedule_time.minute},
+                'monthly': {'trigger': 'cron', 'day': schedule_time.day, 'hour': schedule_time.hour, 'minute': schedule_time.minute}
+            }[frequency]
+            
+            scheduler.add_job(
+                execute_script,
+                **trigger,
+                args=[id, type, script_content],
+                id=job_id
+            )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/schedules/<int:id>', methods=['DELETE'])
+def delete_schedule(id):
+    try:
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        
+        # 先檢查排程是否存在
+        c.execute('SELECT status FROM schedules WHERE id = ?', (id,))
+        schedule = c.fetchone()
+        if not schedule:
+            return jsonify({'error': '找不到排程'}), 404
+
+        # 刪除資料庫中的排程
+        c.execute('DELETE FROM schedules WHERE id = ?', (id,))
+        conn.commit()
+        
+        # 嘗試從排程器中移除任務
+        try:
+            job_id = f'schedule_{id}'
+            if scheduler.get_job(job_id):
+                scheduler.remove_job(job_id)
+        except Exception as e:
+            print(f"Warning: Could not remove job from scheduler: {e}")
+            # 繼續執行，因為資料庫記錄已經刪除
+        
+        return jsonify({'success': True, 'message': '排程已刪除'})
+    
+    except Exception as e:
+        print(f"Error deleting schedule: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+# 添加台灣時區設定
+tw_tz = pytz.timezone('Asia/Taipei')
+
+# 修改執行日誌記錄部分
+def execute_script(schedule_id, script_type, script_content):
+    try:
+        start_time = time.time()
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        
+        # 取得台灣時間
+        now = datetime.now(tw_tz)
+        
+        try:
+            # 更新排程狀態為執行中
+            c.execute('''
+                UPDATE schedules 
+                SET status = 'running', last_run = ?
+                WHERE id = ?
+            ''', (now.strftime('%Y-%m-%d %H:%M:%S'), schedule_id))
+            
+            # 記錄開始執行的日誌
+            c.execute('''
+                INSERT INTO schedule_logs (schedule_id, execution_time, status, content)
+                VALUES (?, ?, 'running', ?)
+            ''', (schedule_id, now.strftime('%Y-%m-%d %H:%M:%S'), "開始執行排程任務"))
+            
+            log_id = c.lastrowid
+            conn.commit()
+            
+            # 創建臨時腳本文件
+            script_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp')
+            if not os.path.exists(script_dir):
+                os.makedirs(script_dir)
+                
+            temp_script = os.path.join(script_dir, f'temp_script_{schedule_id}.py')
+            
+            # 確保輸出目錄存在
+            output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'output')
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+            
+            # 修改腳本內容，添加必要的導入和錯誤處理
+            safe_path = output_dir.replace('\\', '/') # 先處理路徑
+            modified_script = f"""
+import os
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+# 主要腳本內容
+{script_content}
+"""
+            
+            with open(temp_script, 'w', encoding='utf-8-sig') as f:
+                f.write(modified_script)
+            
+            try:
+                # 執行腳本並捕獲輸出
+                process = subprocess.Popen(
+                    ['python', temp_script],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    cwd=script_dir  # 設定工作目錄
+                )
+                stdout, stderr = process.communicate()
+                
+                if process.returncode == 0:
+                    # 執行成功
+                    duration = time.time() - start_time
+                    end_time = datetime.now(tw_tz)
+                    
+                    # 更新日誌
+                    c.execute('''
+                        UPDATE schedule_logs 
+                        SET status = 'success', duration = ?, error_message = NULL,
+                            execution_time = ?, content = ?
+                        WHERE id = ?
+                    ''', (duration, end_time.strftime('%Y-%m-%d %H:%M:%S'), 
+                          "排程任務執行成功", log_id))
+                    
+                    # 更新排程狀態
+                    c.execute('''
+                        UPDATE schedules 
+                        SET status = 'completed', result = ?, error_message = NULL
+                        WHERE id = ?
+                    ''', (stdout.strip(), schedule_id))
+                    
+                else:
+                    # 執行失敗，提供更詳細的錯誤訊息
+                    error_msg = stderr.strip() if stderr else "未知錯誤"
+                    raise Exception(error_msg)
+                    
+            except Exception as e:
+                error = str(e)
+                duration = time.time() - start_time
+                end_time = datetime.now(tw_tz)
+                
+                # 更新日誌
+                error_message = f"執行失敗: {error}"
+                c.execute('''
+                    UPDATE schedule_logs 
+                    SET status = 'failed', duration = ?, error_message = ?,
+                        execution_time = ?, content = ?
+                    WHERE id = ?
+                ''', (duration, error_message, end_time.strftime('%Y-%m-%d %H:%M:%S'),
+                      "排程任務執行失敗", log_id))
+                
+                # 更新排程狀態
+                c.execute('''
+                    UPDATE schedules 
+                    SET status = 'failed', error_message = ?
+                    WHERE id = ?
+                ''', (error_message, schedule_id))
+                
+            finally:
+                # 清理臨時文件
+                if os.path.exists(temp_script):
+                    os.remove(temp_script)
+                    
+            conn.commit()
+            
+        except Exception as e:
+            print(f"Database error: {e}")
+            conn.rollback()
+            raise
+            
+    except Exception as e:
+        print(f"Error executing script: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+@app.route('/api/validate_python', methods=['POST'])
+def validate_python():
+    try:
+        data = request.get_json()
+        script = data.get('script', '')
+        
+        # 使用 ast.parse 進行語法檢查
+        import ast
+        ast.parse(script)
+        
+        return jsonify({'success': True})
+    except SyntaxError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+# 添加 SSE 端點
+@app.route('/api/sse')
+def sse():
+    def generate():
+        while True:
+            # 檢查是否有需要重新整理的信號
+            yield 'data: {"reload": false}\n\n'
+            time.sleep(1)
+    
+    return Response(generate(), mimetype='text/event-stream')
+
+# 添加停止排程的端點
+@app.route('/api/schedules/<int:schedule_id>/stop', methods=['POST'])
+def stop_schedule(schedule_id):
+    try:
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        
+        # 檢查排程是否存在
+        c.execute('SELECT status FROM schedules WHERE id = ?', (schedule_id,))
+        schedule = c.fetchone()
+        if not schedule:
+            return jsonify({'error': '找不到排程'}), 404
+
+        # 更新排程狀態為已停止
+        now = datetime.now(pytz.timezone('Asia/Taipei'))
+        c.execute('''
+            UPDATE schedules 
+            SET status = 'stopped', 
+                last_run = ?,
+                result = '手動停止'
+            WHERE id = ?
+        ''', (now, schedule_id))
+        
+        conn.commit()
+
+        # 嘗試從排程器中移除任務
+        try:
+            job_id = f'schedule_{schedule_id}'
+            if scheduler.get_job(job_id):
+                scheduler.remove_job(job_id)
+        except Exception as e:
+            print(f"Warning: Could not remove job from scheduler: {e}")
+
+        return jsonify({'success': True, 'message': '排程已停止', 'status': 'stopped'})
+
+    except Exception as e:
+        print(f"Error stopping schedule: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+@app.route('/api/schedules/<int:schedule_id>/restart', methods=['POST'])
+def restart_schedule(schedule_id):
+    try:
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        
+        # 檢查排程是否存在
+        c.execute('SELECT type, script_content FROM schedules WHERE id = ?', (schedule_id,))
+        schedule = c.fetchone()
+        if not schedule:
+            return jsonify({'error': '找不到排程'}), 404
+
+        # 只更新排程狀態為執行中，不執行腳本
+        now = datetime.now(pytz.timezone('Asia/Taipei'))
+        c.execute('''
+            UPDATE schedules 
+            SET status = 'active', 
+                last_run = ?,
+                result = NULL,
+                error_message = NULL
+            WHERE id = ?
+        ''', (now, schedule_id))
+        
+        conn.commit()
+
+        # 返回成功訊息
+        return jsonify({
+            'success': True, 
+            'message': '排程已啟用', 
+            'status': 'active'
+        })
+
+    except Exception as e:
+        print(f"Error restarting schedule: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+@app.route('/api/schedules/<int:schedule_id>/run', methods=['POST'])
+def run_schedule_now(schedule_id):
+    try:
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        
+        # 檢查排程是否存在
+        c.execute('SELECT type, script_content, status FROM schedules WHERE id = ?', (schedule_id,))
+        schedule = c.fetchone()
+        if not schedule:
+            return jsonify({'error': '找不到排程'}), 404
+
+        script_type, script_content, status = schedule
+        
+        # 檢查是否已在運行中
+        if status == 'active':
+            return jsonify({'error': '排程已在運行中'}), 400
+
+        # 立即執行排程
+        execute_script(schedule_id, script_type, script_content)
+
+        return jsonify({'success': True, 'message': '排程已開始執行'})
+
+    except Exception as e:
+        print(f"Error running schedule: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+# 添加獲取日誌的 API
+@app.route('/api/schedules/<int:schedule_id>/logs', methods=['GET'])
+def get_schedule_logs(schedule_id):
+    try:
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        
+        # 獲取排程的所有日誌
+        c.execute('''
+            SELECT l.*, s.name as schedule_name 
+            FROM schedule_logs l
+            JOIN schedules s ON l.schedule_id = s.id
+            WHERE l.schedule_id = ?
+            ORDER BY l.execution_time DESC
+        ''', (schedule_id,))
+        
+        logs = []
+        for row in c.fetchall():
+            logs.append({
+                'id': row[0],
+                'schedule_id': row[1],
+                'execution_time': row[2],
+                'status': row[3],
+                'content': row[4],
+                'duration': row[5],
+                'error_message': row[6],
+                'created_at': row[7],
+                'schedule_name': row[8]
+            })
+        
+        return jsonify(logs)
+        
+    except Exception as e:
+        print(f"Error fetching logs: {e}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -22,6 +22,11 @@
                 知識庫管理
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="crawler-tab" data-bs-toggle="tab" data-bs-target="#crawler" type="button" role="tab">
+                知識庫爬取
+            </button>
+        </li>
     </ul>
 
     <!-- Tab content -->
@@ -154,6 +159,150 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Crawler Tab -->
+        <div class="tab-pane fade" id="crawler" role="tabpanel">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">排程任務管理</h5>
+                    <button class="btn btn-primary" onclick="openAddScheduleModal()">
+                        <i class="fas fa-plus me-2"></i>新增排程
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>任務名稱</th>
+                                    <th>執行類型</th>
+                                    <th>執行時間</th>
+                                    <th>狀態</th>
+                                    <th>上次執行</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="schedule-list">
+                                <!-- 由 JavaScript 動態生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增排程模態框 -->
+<div class="modal fade" id="scheduleModal">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="scheduleModalTitle">新增排程任務</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="scheduleForm">
+                    <div class="mb-3">
+                        <label class="form-label required">任務名稱</label>
+                        <input type="text" class="form-control" id="scheduleName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required">執行類型</label>
+                        <select class="form-control" id="scheduleType" required>
+                            <option value="python">Python 腳本</option>
+                            <option value="shell">Shell 腳本</option>
+                            <option value="bat">Batch 腳本</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">腳本來源 <span class="text-danger">*</span></label>
+                        <div class="d-flex flex-column gap-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="scriptSource" value="text" id="sourceText" checked>
+                                <label class="form-check-label" for="sourceText">
+                                    直接輸入
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="scriptSource" value="file" id="sourceFile">
+                                <label class="form-check-label" for="sourceFile">
+                                    上傳檔案
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div id="scriptTextArea">
+                            <label for="scriptContent" class="form-label">腳本內容 <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="scriptContent" rows="5" placeholder="請輸入腳本內容"></textarea>
+                        </div>
+                        
+                        <div id="scriptFileArea" style="display: none;">
+                            <label class="form-label">上傳腳本 <span class="text-danger">*</span></label>
+                            <div class="drop-zone" id="scriptDropZone">
+                                <div class="drop-zone-content text-center">
+                                    <i class="fas fa-cloud-upload-alt fa-3x mb-2"></i>
+                                    <p class="mb-0">拖曳檔案至此或點擊上傳</p>
+                                    <p class="small text-muted">支援的檔案類型: .py, .sh, .bat</p>
+                                </div>
+                                <input type="file" id="scriptFile" class="d-none" accept=".py,.sh,.bat">
+                            </div>
+                            <div id="scriptFileList" class="mt-2"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required">執行頻率</label>
+                        <select class="form-control" id="scheduleFrequency" required>
+                            <option value="once">單次執行</option>
+                            <option value="daily">每日執行</option>
+                            <option value="weekly">每週執行</option>
+                            <option value="monthly">每月執行</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label required">執行時間</label>
+                        <input type="datetime-local" class="form-control" id="scheduleTime" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveSchedule()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 保留日誌模態框 -->
+<div class="modal fade" id="logsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">執行日誌</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>執行時間</th>
+                                <th>狀態</th>
+                                <th>執行內容</th>
+                                <th>執行時長</th>
+                                <th>錯誤訊息</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
             </div>
         </div>
     </div>
