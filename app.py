@@ -2235,6 +2235,20 @@ def save_schedule(schedule_id=None):
             # 設定初始狀態為 'pending'
             initial_status = 'pending'
 
+            # 處理時間格式
+            schedule_time = data['schedule_time']
+            current_date = datetime.now(pytz.timezone('Asia/Taipei'))
+            
+            if data['frequency'] != 'once':
+                # 對於重複執行的排程，使用當前日期加上選擇的時間
+                schedule_time = current_date.strftime('%Y-%m-%d ') + schedule_time
+            else:
+                # 對於單次執行，需要完整的日期時間
+                if not 'T' in schedule_time:
+                    schedule_time = current_date.strftime('%Y-%m-%d ') + schedule_time
+                else:
+                    schedule_time = schedule_time.replace('T', ' ')
+
             if schedule_id:  # 更新現有排程
                 c.execute('''
                     UPDATE schedules 
@@ -2243,8 +2257,8 @@ def save_schedule(schedule_id=None):
                     WHERE id = ?
                 ''', (
                     data['name'], data['type'], data['script_content'],
-                    data['schedule_time'], data['frequency'], 
-                    data.get('status', initial_status),  # 使用傳入的狀態或預設狀態
+                    schedule_time, data['frequency'], 
+                    data.get('status', initial_status),
                     schedule_id
                 ))
                 job_id = schedule_id
@@ -2255,43 +2269,72 @@ def save_schedule(schedule_id=None):
                     VALUES (?, ?, ?, ?, ?, ?)
                 ''', (
                     data['name'], data['type'], data['script_content'],
-                    data['schedule_time'], data['frequency'], initial_status
+                    schedule_time, data['frequency'], initial_status
                 ))
                 job_id = c.lastrowid
 
-            # 添加新的排程任務
-            schedule_time = datetime.strptime(data['schedule_time'], '%Y-%m-%dT%H:%M')
-            if data['frequency'] == 'once':
-                trigger = DateTrigger(
-                    run_date=schedule_time,
+            # 解析排程設定
+            schedule_time_obj = datetime.strptime(schedule_time, '%Y-%m-%d %H:%M')
+            schedule_config = data.get('schedule_config', {})
+            
+            if data['frequency'] == 'weekly':
+                weekdays = schedule_config.get('weekdays', [])
+                if not weekdays:
+                    return jsonify({'error': '請選擇每週執行日'}), 400
+                
+                # 為每個選擇的星期創建一個觸發器
+                triggers = []
+                for weekday in weekdays:
+                    # 計算下一個執行時間
+                    trigger = CronTrigger(
+                        day_of_week=str(weekday),
+                        hour=schedule_time_obj.hour,
+                        minute=schedule_time_obj.minute,
+                        timezone=pytz.timezone('Asia/Taipei'),
+                        start_date=current_date  # 添加開始日期
+                    )
+                    triggers.append(trigger)
+
+            elif data['frequency'] == 'monthly':
+                monthdays = schedule_config.get('monthdays', [])
+                if not monthdays:
+                    return jsonify({'error': '請選擇每月執行日期'}), 400
+                
+                # 為每個選擇的日期創建一個觸發器
+                triggers = [
+                    CronTrigger(
+                        day=str(monthday),
+                        hour=schedule_time_obj.hour,
+                        minute=schedule_time_obj.minute,
+                        timezone=pytz.timezone('Asia/Taipei')
+                    ) for monthday in monthdays
+                ]
+                
+            elif data['frequency'] == 'once':
+                # 單次執行使用 DateTrigger
+                triggers = [DateTrigger(
+                    run_date=schedule_time_obj,
                     timezone=pytz.timezone('Asia/Taipei')
-                )
+                )]
             else:
-                # 解析時間為 cron 表達式
-                cron_parts = {
-                    'hour': schedule_time.hour,
-                    'minute': schedule_time.minute,
-                }
-                if data['frequency'] == 'daily':
-                    pass  # 使用預設的每日執行
-                elif data['frequency'] == 'weekly':
-                    cron_parts['day_of_week'] = schedule_time.weekday()
-                elif data['frequency'] == 'monthly':
-                    cron_parts['day'] = schedule_time.day
+                # 每日執行
+                triggers = [CronTrigger(
+                    hour=schedule_time_obj.hour,
+                    minute=schedule_time_obj.minute,
+                    timezone=pytz.timezone('Asia/Taipei'),
+                    start_date=current_date  # 添加開始日期
+                )]
 
-                trigger = CronTrigger(
-                    **cron_parts,
-                    timezone=pytz.timezone('Asia/Taipei')
+            # 為每個觸發器創建一個任務
+            for i, trigger in enumerate(triggers):
+                job_id_str = f'schedule_{schedule_id or job_id}_{i}'
+                scheduler.add_job(
+                    execute_script,
+                    trigger=trigger,
+                    args=[schedule_id or job_id, data['type'], data['script_content']],
+                    id=job_id_str,
+                    replace_existing=True
                 )
-
-            # 立即添加排程任務
-            scheduler.add_job(
-                execute_script,
-                trigger=trigger,
-                args=[job_id, data['type'], data['script_content']],
-                id=f'schedule_{job_id}',
-                replace_existing=True
-            )
 
             conn.commit()
             return jsonify({'message': '保存成功'}), 200

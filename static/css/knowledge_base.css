@@ -444,3 +444,46 @@
     color: #dc3545;
     cursor: pointer;
 }
+
+.btn-group {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.btn-group .btn {
+    border-radius: 0.25rem !important;
+    margin: 0.125rem;
+}
+
+.monthday-select + label {
+    min-width: 2.5rem;
+}
+
+.weekday-select + label {
+    min-width: 3.5rem;
+}
+
+/* 分頁相關樣式 */
+.pagination-container {
+    display: flex;
+    align-items: center;
+}
+
+.pagination-container button {
+    min-width: 80px;
+}
+
+#pageInfo {
+    margin: 0 10px;
+}
+
+/* 搜尋框樣式 */
+#scheduleSearch {
+    max-width: 300px;
+}
+
+/* 每頁筆數選擇器樣式 */
+#pageSize {
+    width: 70px;
+    display: inline-block;
+}

@@ -1,9 +1,28 @@
+// 添加 debounce 函數定義
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 // 將函數移到全局作用域
 let currentScheduleId = null;
 let scriptContent = '';
 
 // 添加定時更新功能
 let updateInterval;
+
+// 添加分頁和搜尋相關變數
+let scheduleCurrentPage = 1;
+let schedulePageSize = 10;
+let scheduleSearchKeyword = '';
+let totalSchedules = []; // 添加總數據存儲
 
 // 開啟新增排程模態框
 function openAddScheduleModal() {
@@ -288,60 +307,45 @@ async function loadScheduleList(forceUpdate = false) {
     try {
         const timestamp = forceUpdate ? `?t=${Date.now()}` : '';
         const response = await fetch('/api/schedules' + timestamp);
-        const newSchedules = await response.json();
+        if (!response.ok) {
+            throw new Error('載入排程列表失敗');
+        }
+        const schedules = await response.json();
         
-        const tbody = document.getElementById('schedule-list');
-        if (!tbody) return;
-
+        // 保存完整的排程列表
+        totalSchedules = schedules;
+        
         // 獲取當前顯示的排程狀態
-        const currentSchedules = {};
-        tbody.querySelectorAll('tr').forEach(tr => {
-            const id = tr.getAttribute('data-id');
-            if (id) {
-                const statusBadge = tr.querySelector('.badge');
-                currentSchedules[id] = {
-                    id: id,
-                    status: statusBadge ? statusBadge.textContent.trim() : '',
-                    lastRun: tr.querySelector('td:nth-child(5)').textContent.trim()
-                };
-            }
-        });
+        const tbody = document.getElementById('schedule-list');
+        if (tbody) {
+            const currentSchedules = {};
+            tbody.querySelectorAll('tr').forEach(tr => {
+                const id = tr.getAttribute('data-id');
+                if (id) {
+                    const statusBadge = tr.querySelector('.badge');
+                    currentSchedules[id] = {
+                        id: id,
+                        name: tr.querySelector('td:nth-child(1)').textContent.trim(),
+                        status: statusBadge ? statusBadge.textContent.trim() : '',
+                        lastRun: tr.querySelector('td:nth-child(5)').textContent.trim()
+                    };
+                }
+            });
 
-        // 檢查狀態變化
-        for (const schedule of newSchedules) {
-            const currentSchedule = currentSchedules[schedule.id];
-            if (currentSchedule) {
-                const statusMap = {
-                    'active': '執行中',
-                    'pending': '等待中',
-                    'completed': '已完成',
-                    'stopped': '已停止',
-                    'failed': '失敗'
-                };
-                
-                const newStatus = statusMap[schedule.status];
-                const newLastRun = schedule.last_run ? formatScheduleTime(schedule.last_run) : '-';
-                
-                // 如果狀態有變化
-                if (currentSchedule.status !== newStatus) {
-                    // 找到對應的表格行並更新
-                    const tr = tbody.querySelector(`tr[data-id="${schedule.id}"]`);
-                    if (tr) {
-                        // 更新狀態
-                        const statusCell = tr.querySelector('td:nth-child(4)');
-                        statusCell.innerHTML = `
-                            ${getStatusBadge(schedule.status)}
-                            ${schedule.error_message ? 
-                                `<span class="text-danger ms-2" title="${escapeHtml(schedule.error_message)}">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                </span>` : 
-                                ''}
-                        `;
-                        
-                        // 更新最後執行時間
-                        const lastRunCell = tr.querySelector('td:nth-child(5)');
-                        lastRunCell.textContent = newLastRun;
-
+            // 檢查狀態變化
+            schedules.forEach(schedule => {
+                const currentSchedule = currentSchedules[schedule.id];
+                if (currentSchedule) {
+                    const statusMap = {
+                        'active': '執行中',
+                        'pending': '等待中',
+                        'completed': '已完成',
+                        'stopped': '已停止',
+                        'failed': '失敗'
+                    };
+                    
+                    const newStatus = statusMap[schedule.status];
+                    if (currentSchedule.status !== newStatus) {
                         // 只在完成或失敗時顯示一次通知
                         if (newStatus === '已完成' || newStatus === '失敗') {
                             showStatusChangeNotification(
@@ -354,47 +358,90 @@ async function loadScheduleList(forceUpdate = false) {
                         }
                     }
                 }
-            }
+            });
+        }
+        
+        // 應用搜尋過濾
+        let filteredSchedules = schedules;
+        if (scheduleSearchKeyword) {
+            const keyword = scheduleSearchKeyword.toLowerCase();
+            filteredSchedules = schedules.filter(schedule => 
+                schedule.name.toLowerCase().includes(keyword) ||
+                getScheduleTypeName(schedule.type).toLowerCase().includes(keyword) ||
+                getScheduleFrequencyName(schedule.frequency).toLowerCase().includes(keyword)
+            );
         }
 
-        // 保持原有的表格更新邏輯
-        tbody.innerHTML = '';
-        if (newSchedules.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center">目前沒有排程任務</td></tr>';
-            return;
-        }
+        // 計算分頁
+        const totalPages = Math.ceil(filteredSchedules.length / schedulePageSize);
+        const start = (scheduleCurrentPage - 1) * schedulePageSize;
+        const end = Math.min(start + schedulePageSize, filteredSchedules.length);
+        const pageSchedules = filteredSchedules.slice(start, end);
 
-        newSchedules.forEach(schedule => {
-            const tr = document.createElement('tr');
-            tr.setAttribute('data-id', schedule.id);
-            
-            tr.innerHTML = `
-                <td>${escapeHtml(schedule.name)}</td>
-                <td>${getScheduleTypeName(schedule.type)}</td>
-                <td>${formatScheduleTime(schedule.schedule_time)} (${getScheduleFrequencyName(schedule.frequency)})</td>
-                <td>
-                    ${getStatusBadge(schedule.status)}
-                    ${schedule.error_message ? 
-                        `<span class="text-danger ms-2" title="${escapeHtml(schedule.error_message)}">
-                            <i class="fas fa-exclamation-circle"></i>
-                        </span>` : 
-                        ''}
-                </td>
-                <td>${schedule.last_run ? formatScheduleTime(schedule.last_run) : '-'}</td>
-                <td>
-                    ${createActionButtons(schedule)}
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
+        // 更新分頁控制
+        updatePaginationControls(scheduleCurrentPage, totalPages, filteredSchedules.length);
+
+        // 更新表格內容
+        updateScheduleTable(pageSchedules);
+
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error loading schedules:', error);
         await Swal.fire({
             icon: 'error',
             title: '錯誤',
-            text: '載入排程列表失敗'
+            text: error.message || '載入排程列表失敗'
         });
     }
+}
+
+// 添加更新分頁控制的函數
+function updatePaginationControls(currentPage, totalPages, totalItems) {
+    const prevButton = document.getElementById('schedulePrevPage')?.parentElement;
+    const nextButton = document.getElementById('scheduleNextPage')?.parentElement;
+    const pageInfo = document.getElementById('schedulePageInfo');
+    
+    if (prevButton) {
+        prevButton.classList.toggle('disabled', currentPage <= 1);
+    }
+    if (nextButton) {
+        nextButton.classList.toggle('disabled', currentPage >= totalPages);
+    }
+    if (pageInfo) {
+        pageInfo.textContent = `第 ${currentPage} 頁 / 共 ${totalPages} 頁 (共 ${totalItems} 筆)`;
+    }
+}
+
+// 更新表格內容的輔助函數
+function updateScheduleTable(schedules) {
+    const tbody = document.getElementById('schedule-list');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    if (schedules.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">目前沒有排程任務</td></tr>';
+        return;
+    }
+
+    schedules.forEach(schedule => {
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-id', schedule.id);
+        tr.innerHTML = `
+            <td>${escapeHtml(schedule.name)}</td>
+            <td>${getScheduleTypeName(schedule.type)}</td>
+            <td>${formatScheduleTime(schedule.schedule_time)} (${getScheduleFrequencyName(schedule.frequency)})</td>
+            <td>
+                ${getStatusBadge(schedule.status)}
+                ${schedule.error_message ? 
+                    `<span class="text-danger ms-2" title="${escapeHtml(schedule.error_message)}">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </span>` : 
+                    ''}
+            </td>
+            <td>${schedule.last_run ? formatScheduleTime(schedule.last_run) : '-'}</td>
+            <td>${createActionButtons(schedule)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
 }
 
 // 輔助函數
@@ -1642,4 +1689,49 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('scriptFileList').innerHTML = '';
         scriptContent = '';
     });
+
+    // 綁定搜尋輸入框事件
+    const searchInput = document.getElementById('scheduleSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(function(e) {
+            scheduleSearchKeyword = e.target.value;
+            scheduleCurrentPage = 1; // 重置到第一頁
+            loadScheduleList(true);
+        }, 300));
+    }
+
+    // 綁定每頁筆數選擇事件
+    const pageSizeSelect = document.getElementById('schedulePageSize');
+    if (pageSizeSelect) {
+        pageSizeSelect.value = schedulePageSize.toString();
+        pageSizeSelect.addEventListener('change', function(e) {
+            schedulePageSize = parseInt(e.target.value);
+            scheduleCurrentPage = 1;
+            loadScheduleList(true);
+        });
+    }
+
+    // 綁定分頁按鈕事件
+    const prevPageBtn = document.getElementById('schedulePrevPage');
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (scheduleCurrentPage > 1) {
+                scheduleCurrentPage--;
+                loadScheduleList(true);
+            }
+        });
+    }
+
+    const nextPageBtn = document.getElementById('scheduleNextPage');
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const totalPages = Math.ceil(totalSchedules.length / schedulePageSize);
+            if (scheduleCurrentPage < totalPages) {
+                scheduleCurrentPage++;
+                loadScheduleList(true);
+            }
+        });
+    }
 });
