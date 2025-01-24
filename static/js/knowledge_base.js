@@ -288,6 +288,66 @@ async function validateScript(content, type) {
     }
 }
 
+// 修改腳本內容安全檢查函數
+function isScriptContentSafe(content, scriptType) {
+    // 定義危險關鍵字列表
+    const dangerousKeywords = [
+        'rm -rf', 'rmdir /s', 'del /f', 'format',  // 刪除和格式化命令
+        'shutdown', 'reboot', 'init 0',          // 系統關機命令
+        'chmod 777', 'chmod -R',                 // 權限修改
+        ':(){:|:&};:',                          // Fork 炸彈
+        'eval(',                                // 危險的程式碼執行
+        'exec(',                                // 系統命令執行
+        'os.system',                           // Python 系統命令
+        'subprocess.call',                      // Python 子進程
+        'socket',                              // 網路操作
+    ];
+
+    // 根據腳本類型定義允許的關鍵字
+    const allowedKeywords = {
+        'python': [
+            'requests', 'beautifulsoup', 'selenium',
+            'urllib', 'scrapy', 'aiohttp',
+            'pandas', 'csv', 'json',
+            'time.sleep', 'datetime',
+            'print', 'logging'
+        ],
+        'bat': [
+            '@echo off', 'powershell', 'invoke-webrequest',
+            'findstr', 'type', 'find',
+            'echo', 'exit /b',
+            'set', 'if', 'for'
+        ],
+        'shell': [
+            'curl', 'wget', 'grep',
+            'awk', 'sed', 'cat',
+            'echo', 'exit'
+        ]
+    };
+
+    // 檢查是否包含危險關鍵字
+    const hasDangerousCode = dangerousKeywords.some(keyword => 
+        content.toLowerCase().includes(keyword.toLowerCase())
+    );
+
+    // 根據腳本類型檢查是否包含允許的關鍵字
+    const scriptAllowedKeywords = allowedKeywords[scriptType] || allowedKeywords.python;
+    const hasAllowedCode = scriptAllowedKeywords.some(keyword => 
+        content.toLowerCase().includes(keyword.toLowerCase())
+    );
+
+    if (hasDangerousCode || !hasAllowedCode) {
+        return {
+            safe: false,
+            message: hasDangerousCode ? 
+                '腳本包含危險的系統命令，僅允許網頁爬蟲相關操作。' : 
+                '腳本必須包含允許的程式碼。'
+        };
+    }
+
+    return { safe: true };
+}
+
 // 保存排程
 async function saveSchedule() {
     try {
@@ -307,30 +367,56 @@ async function saveSchedule() {
         let scriptContent = '';
         let fileName = null;
 
-        // 修改這裡：將 'file' 改為 'upload'
-        if (scriptSource === 'upload') {  // 修改這行
+        // 檢查腳本來源
+        if (scriptSource === 'file') {
             const fileInput = document.getElementById('scriptFile');
-            const uploadedFile = document.querySelector('.uploaded-file');
+            const scriptFileList = document.getElementById('scriptFileList');
             
-            if (fileInput.files.length > 0) {
-                // 使用新上傳的檔案
-                fileName = fileInput.files[0].name;
-                scriptContent = await fileInput.files[0].text();
-            } else if (uploadedFile && currentScheduleId) {
-                // 使用已存在的檔案（編輯模式）
-                fileName = uploadedFile.textContent.trim();
-                const existingScript = document.getElementById('existingScriptContent');
-                if (existingScript) {
-                    scriptContent = existingScript.value;
+            // 檢查是否有新上傳的檔案
+            if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                fileName = file.name;
+                scriptContent = await file.text();
+                
+                // 檢查腳本內容安全性
+                const securityCheck = isScriptContentSafe(scriptContent, type);  // 添加 type 參數
+                if (!securityCheck.safe) {
+                    throw new Error(securityCheck.message);
+                }
+            } 
+            // 檢查是否有已上傳的檔案
+            else if (scriptFileList && scriptFileList.querySelector('.file-item')) {
+                const fileItem = scriptFileList.querySelector('.file-item');
+                fileName = fileItem.textContent.trim();
+                scriptContent = fileName;
+            }
+            // 檢查是否有顯示的檔案名稱
+            else if (scriptFileList && scriptFileList.textContent.trim()) {
+                fileName = scriptFileList.textContent.trim();
+                scriptContent = fileName;
+            }
+            // 如果是編輯模式，檢查是否有已存在的檔案
+            else if (currentScheduleId) {
+                const existingFile = document.querySelector('.uploaded-file');
+                if (existingFile) {
+                    fileName = existingFile.textContent.trim();
+                    scriptContent = fileName;
+                } else {
+                    throw new Error('請上傳腳本檔案');
                 }
             } else {
                 throw new Error('請上傳腳本檔案');
             }
-        } else {
-            // 直接輸入模式
+        } else if (scriptSource === 'text') {
             scriptContent = document.getElementById('scriptContent').value.trim();
             if (!scriptContent) {
                 throw new Error('請輸入腳本內容');
+            }
+            
+            // 檢查腳本內容安全性
+            const securityCheck = isScriptContentSafe(scriptContent, type);  // 添加 type 參數
+            if (!securityCheck.safe) {
+                throw new Error(securityCheck.message);
             }
         }
 
@@ -446,6 +532,7 @@ async function saveSchedule() {
 }
 
 
+
 // 載入排程列表
 async function loadScheduleList(forceUpdate = false) {
     try {
@@ -544,34 +631,103 @@ async function loadScheduleList(forceUpdate = false) {
 
 // 修改 updatePaginationControls 函數
 function updatePaginationControls(currentPage, totalPages, totalItems) {
-    const paginationContainer = document.getElementById('paginationContainer');
-    if (paginationContainer) {
-        paginationContainer.innerHTML = `
-            <div class="d-flex align-items-center gap-2">
-                <span class="pagination-info">第 ${currentPage} 頁 / 共 ${totalPages} 頁 (共 ${totalItems} 筆)</span>
-                <nav aria-label="Page navigation">
-                    <ul class="pagination pagination-sm mb-0">
-                        <li class="page-item ${currentPage <= 1 ? 'disabled' : ''}">
-                            <a class="page-link" href="#" id="schedulePrevPage">
-                                <i class="fas fa-chevron-left"></i>
-                            </a>
-                        </li>
-                        <li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
-                            <a class="page-link" href="#" id="scheduleNextPage">
-                                <i class="fas fa-chevron-right"></i>
-                            </a>
-                        </li>
-                    </ul>
-                </nav>
-            </div>
+    // 修改選擇器，確保能找到正確的分頁容器
+    const pagination = document.querySelector('#schedule-list').closest('.card-body').querySelector('.pagination');
+    if (!pagination) {
+        console.error('Pagination container not found');
+        return;
+    }
+
+    // 清空分頁容器
+    pagination.innerHTML = '';
+    
+    // 添加上一頁按鈕
+    pagination.innerHTML += `
+        <li class="page-item ${currentPage <= 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" id="schedulePrevPage">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+        </li>
+    `;
+
+    // 生成所有頁碼按鈕
+    for (let i = 1; i <= totalPages; i++) {
+        pagination.innerHTML += `
+            <li class="page-item ${i === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>
         `;
     }
 
-    // 更新每頁顯示選項
-    const pageSizeSelect = document.getElementById('pageSizeSelect');
-    if (pageSizeSelect) {
-        pageSizeSelect.value = schedulePageSize;
+    // 添加下一頁按鈕
+    pagination.innerHTML += `
+        <li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" id="scheduleNextPage">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+        </li>
+    `;
+
+    // 綁定事件處理
+    bindPaginationEvents(pagination, currentPage, totalPages);
+}
+
+// 新增一個函數來處理分頁事件綁定
+function bindPaginationEvents(pagination, currentPage, totalPages) {
+    // 綁定頁碼點擊事件
+    pagination.querySelectorAll('.page-link[data-page]').forEach(link => {
+        link.onclick = function(e) {
+            e.preventDefault();
+            const page = parseInt(this.dataset.page);
+            if (page !== currentPage) {
+                scheduleCurrentPage = page;
+                loadScheduleList(true);
+            }
+        };
+    });
+
+    // 綁定上一頁/下一頁按鈕事件
+    const prevPageBtn = pagination.querySelector('#schedulePrevPage');
+    const nextPageBtn = pagination.querySelector('#scheduleNextPage');
+    
+    if (prevPageBtn) {
+        prevPageBtn.onclick = function(e) {
+            e.preventDefault();
+            if (currentPage > 1) {
+                scheduleCurrentPage--;
+                loadScheduleList(true);
+            }
+        };
     }
+    
+    if (nextPageBtn) {
+        nextPageBtn.onclick = function(e) {
+            e.preventDefault();
+            if (currentPage < totalPages) {
+                scheduleCurrentPage++;
+                loadScheduleList(true);
+            }
+        };
+    }
+}
+
+// 添加生成頁碼的輔助函數
+function generatePageNumbers(currentPage, totalPages) {
+    let pages = '';
+    
+    // 如果總頁數小於等於 1，不顯示額外的頁碼
+    if (totalPages <= 1) return '';
+    
+    // 生成中間的頁碼
+    for (let i = 2; i <= totalPages; i++) {
+        pages += `
+            <li class="page-item ${currentPage === i ? 'active' : ''}">
+                <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>
+        `;
+    }
+    
+    return pages;
 }
 
 // 將 updateBatchDeleteButton 函數移到文件頂部
@@ -639,8 +795,19 @@ function updateScheduleTable(schedules) {
     const paginationContainer = document.getElementById('paginationContainer');
     if (paginationContainer) {
         paginationContainer.innerHTML = `
-            <div class="d-flex align-items-center gap-2">
-                <span class="pagination-info">第 ${scheduleCurrentPage} 頁 / 共 ${Math.ceil(totalSchedules.length / schedulePageSize)} 頁 (共 ${totalSchedules.length} 筆)</span>
+            <div class="d-flex justify-content-between align-items-center">
+                <!-- 左側的每頁顯示選項 -->
+                <div class="d-flex align-items-center me-3">
+                    <span class="me-2">每頁顯示:</span>
+                    <select class="form-select form-select-sm" id="pageSizeSelect" style="width: 70px;">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+
+                <!-- 右側的分頁控制 -->
                 <nav aria-label="Page navigation">
                     <ul class="pagination pagination-sm mb-0">
                         <li class="page-item ${scheduleCurrentPage <= 1 ? 'disabled' : ''}">
@@ -648,6 +815,10 @@ function updateScheduleTable(schedules) {
                                 <i class="fas fa-chevron-left"></i>
                             </a>
                         </li>
+                        <li class="page-item ${scheduleCurrentPage === 1 ? 'active' : ''}">
+                            <a class="page-link" href="#" data-page="1">1</a>
+                        </li>
+                        ${generatePageNumbers(scheduleCurrentPage, Math.ceil(totalSchedules.length / schedulePageSize))}
                         <li class="page-item ${scheduleCurrentPage >= Math.ceil(totalSchedules.length / schedulePageSize) ? 'disabled' : ''}">
                             <a class="page-link" href="#" id="scheduleNextPage">
                                 <i class="fas fa-chevron-right"></i>
@@ -657,12 +828,17 @@ function updateScheduleTable(schedules) {
                 </nav>
             </div>
         `;
-    }
 
-    // 更新每頁顯示選項
-    const pageSizeSelect = document.getElementById('pageSizeSelect');
-    if (pageSizeSelect) {
-        pageSizeSelect.value = schedulePageSize;
+        // 綁定每頁顯示選項的事件
+        const pageSizeSelect = document.getElementById('pageSizeSelect');
+        if (pageSizeSelect) {
+            pageSizeSelect.value = schedulePageSize;
+            pageSizeSelect.onchange = function() {
+                schedulePageSize = parseInt(this.value);
+                scheduleCurrentPage = 1;  // 重置到第一頁
+                loadScheduleList(true);
+            };
+        }
     }
 }
 
