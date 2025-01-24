@@ -590,3 +590,47 @@
     width: 70px;
     display: inline-block;
 }
+
+/* 添加空狀態的樣式 */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.empty-state h5 {
+    color: #6c757d;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    color: #868e96;
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+}
+
+.empty-state .btn {
+    font-weight: 500;
+}
+
+/* 添加自動更新控制樣式 */
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.form-check.form-switch {
+    padding-left: 2.5em;
+}
+
+#updateInterval:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+#updateInterval {
+    padding: 0.25rem 0.5rem;
+}

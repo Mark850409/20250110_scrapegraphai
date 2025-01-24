@@ -167,9 +167,14 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">排程任務管理</h5>
-                    <button class="btn btn-primary" onclick="openAddScheduleModal()">
-                        <i class="fas fa-plus"></i> 新增排程
-                    </button>
+                    <div>
+                        <button class="btn btn-danger me-2" id="batchDeleteBtn" disabled>
+                            <i class="fas fa-trash-alt"></i> 批量刪除
+                        </button>
+                        <button class="btn btn-primary" onclick="openAddScheduleModal()">
+                            <i class="fas fa-plus"></i> 新增排程
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <!-- 搜尋和每頁筆數控制 -->
@@ -177,14 +182,26 @@
                         <div class="d-flex align-items-center">
                             <input type="text" class="form-control me-2" id="scheduleSearch" placeholder="搜尋..." style="width: 200px;">
                         </div>
-                        <div class="d-flex align-items-center">
-                            <span class="me-2">每頁顯示:</span>
-                            <select class="form-select form-select-sm" id="schedulePageSize" style="width: 70px;">
-                                <option value="10">10</option>
-                                <option value="25">25</option>
-                                <option value="50">50</option>
-                                <option value="100">100</option>
-                            </select>
+                        <div class="d-flex align-items-center gap-3">
+                            <!-- 修改自動更新控制的輸入框 -->
+                            <div class="d-flex align-items-center">
+                                <label class="form-check-label me-2">自動更新</label>
+                                <div class="form-check form-switch me-2">
+                                    <input class="form-check-input" type="checkbox" id="autoUpdateToggle">
+                                </div>
+                                <input type="number" class="form-control form-control-sm" id="updateInterval" 
+                                       value="30" min="5" max="300" style="width: 70px;">
+                                <span class="ms-1">秒</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="me-2">每頁顯示:</span>
+                                <select class="form-select form-select-sm" id="schedulePageSize" style="width: 70px;">
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -193,6 +210,9 @@
                         <table class="table">
                             <thead>
                                 <tr>
+                                    <th>
+                                        <input type="checkbox" class="form-check-input" id="selectAll">
+                                    </th>
                                     <th>任務名稱</th>
                                     <th>執行類型</th>
                                     <th>執行時間</th>

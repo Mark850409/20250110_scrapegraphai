@@ -2174,7 +2174,6 @@ def get_schedules():
             try:
                 # 先移除所有現有的描述文字
                 clean_time = re.sub(r'\([^)]*\)', '', schedule_time).strip()
-                print("清理後的時間:", clean_time)
                 
                 # 統一時間格式處理
                 if ':' in clean_time:
@@ -2661,12 +2660,17 @@ sys.stdout.reconfigure(encoding='utf-8')
                 f.write(modified_script)
             
             try:
-                # 執行腳本
+                # 執行腳本，設定環境變數確保使用 UTF-8 編碼
+                my_env = os.environ.copy()
+                my_env['PYTHONIOENCODING'] = 'utf-8'
+                
                 process = subprocess.Popen(
                     ['python', temp_script],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
+                    encoding='utf-8',
+                    env=my_env,
                     cwd=script_dir
                 )
                 stdout, stderr = process.communicate()
@@ -3017,6 +3021,47 @@ def add_schedule_job(schedule_id, frequency, schedule_time, selected_days=None):
     except Exception as e:
         print(f"Error adding schedule job: {e}")
         return False
+
+# 添加批量刪除路由
+@app.route('/api/schedules/batch', methods=['DELETE'])
+def batch_delete_schedules():
+    try:
+        data = request.get_json()
+        if not data or 'ids' not in data or not data['ids']:
+            return jsonify({'error': '未提供要刪除的ID列表'}), 400
+            
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        
+        # 將 ID 列表轉換為 SQL 安全的格式
+        id_list = ','.join('?' * len(data['ids']))
+        
+        # 執行批量刪除
+        c.execute(f'DELETE FROM schedules WHERE id IN ({id_list})', data['ids'])
+        conn.commit()
+        
+        # 從排程器中移除任務
+        for schedule_id in data['ids']:
+            try:
+                job_id = f'schedule_{schedule_id}'
+                if scheduler.get_job(job_id):
+                    scheduler.remove_job(job_id)
+            except Exception as e:
+                print(f"Warning: Could not remove job {job_id} from scheduler: {e}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'成功刪除 {len(data["ids"])} 個排程'
+        })
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'批量刪除失敗: {str(e)}'
+        }), 500
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 if __name__ == '__main__':
     app.run(debug=True)

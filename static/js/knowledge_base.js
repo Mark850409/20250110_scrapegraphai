@@ -435,6 +435,8 @@ async function saveSchedule() {
 // 載入排程列表
 async function loadScheduleList(forceUpdate = false) {
     try {
+        console.log('Loading schedule list' + (forceUpdate ? ' (forced)' : ''));
+        
         const timestamp = forceUpdate ? `?t=${Date.now()}` : '';
         const response = await fetch('/api/schedules' + timestamp);
         if (!response.ok) {
@@ -514,6 +516,8 @@ async function loadScheduleList(forceUpdate = false) {
         // 更新表格內容
         updateScheduleTable(pageSchedules);
 
+        // 在更新表格後添加 log
+        console.log('Schedule list updated');
     } catch (error) {
         console.error('Error loading schedules:', error);
         await Swal.fire({
@@ -541,14 +545,36 @@ function updatePaginationControls(currentPage, totalPages, totalItems) {
     }
 }
 
-// 更新表格內容的輔助函數
+// 將 updateBatchDeleteButton 函數移到文件頂部
+function updateBatchDeleteButton() {
+    const checkedBoxes = document.querySelectorAll('input[name="scheduleSelect"]:checked');
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    if (batchDeleteBtn) {
+        batchDeleteBtn.disabled = checkedBoxes.length === 0;
+    }
+}
+
+// 修改 updateScheduleTable 函數
 function updateScheduleTable(schedules) {
     const tbody = document.getElementById('schedule-list');
     if (!tbody) return;
 
     tbody.innerHTML = '';
     if (schedules.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">目前沒有排程任務</td></tr>';
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center py-5">
+                    <div class="empty-state">
+                        <i class="fas fa-clipboard-list fa-3x mb-3 text-muted"></i>
+                        <h5 class="text-muted mb-2">目前沒有排程任務</h5>
+                        <p class="text-muted mb-3">點擊右上角的「新增排程」按鈕來建立新的排程任務</p>
+                        <button class="btn btn-primary" onclick="openAddScheduleModal()">
+                            <i class="fas fa-plus me-2"></i>新增排程
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
         return;
     }
 
@@ -556,6 +582,9 @@ function updateScheduleTable(schedules) {
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', schedule.id);
         tr.innerHTML = `
+            <td>
+                <input type="checkbox" class="form-check-input" name="scheduleSelect" value="${schedule.id}">
+            </td>
             <td>${escapeHtml(schedule.name)}</td>
             <td>${getScheduleTypeName(schedule.type)}</td>
             <td>${formatScheduleTime(schedule)}</td>
@@ -572,6 +601,20 @@ function updateScheduleTable(schedules) {
         `;
         tbody.appendChild(tr);
     });
+
+    // 添加勾選事件監聽
+    document.querySelectorAll('input[name="scheduleSelect"]').forEach(checkbox => {
+        checkbox.addEventListener('change', updateBatchDeleteButton);
+    });
+
+    // 更新全選框狀態
+    const selectAll = document.getElementById('selectAll');
+    if (selectAll) {
+        selectAll.checked = false;
+    }
+    
+    // 更新批量刪除按鈕狀態
+    updateBatchDeleteButton();
 }
 
 // 輔助函數
@@ -854,20 +897,24 @@ async function deleteSchedule(id) {
 }
 
 // 修改定時更新函數
-function startAutoUpdate() {
-    // 立即執行一次，並強制更新
-    loadScheduleList(true);
-    
-    // 每5秒更新一次
-    updateInterval = setInterval(async () => {
-        await loadScheduleList(true);
-    }, 5000);  // 更頻繁的檢查
+function startAutoUpdate(seconds) {
+    console.log(`Starting auto update with interval: ${seconds} seconds`);
+    stopAutoUpdate(); // 先停止現有的更新
+    if (seconds >= 5) {
+        autoUpdateInterval = setInterval(() => {
+            console.log('Auto update triggered');
+            loadScheduleList(true); // 添加 true 參數強制更新
+        }, seconds * 1000);
+        console.log('Auto update interval set');
+    }
 }
 
-// 停止定時更新
+// 修改 stopAutoUpdate 函數
 function stopAutoUpdate() {
-    if (updateInterval) {
-        clearInterval(updateInterval);
+    if (autoUpdateInterval) {
+        console.log('Stopping auto update');
+        clearInterval(autoUpdateInterval);
+        autoUpdateInterval = null;
     }
 }
 
@@ -1210,6 +1257,124 @@ function removeUploadedFile() {
     document.getElementById('scriptFile').value = '';
     // 清空腳本內容
     document.getElementById('scriptContent').value = '';
+}
+
+// 在文件最頂部定義全局變數
+let autoUpdateInterval = null;
+
+// 修改 DOMContentLoaded 事件處理，移除重複的註冊
+document.addEventListener('DOMContentLoaded', function() {
+    // ... 其他現有的初始化代碼 ...
+
+    // 初始化自動更新控制
+    initAutoUpdate();
+});
+
+// 將自動更新初始化邏輯抽取為獨立函數
+function initAutoUpdate() {
+    const autoUpdateToggle = document.getElementById('autoUpdateToggle');
+    const updateInterval = document.getElementById('updateInterval');
+
+    if (autoUpdateToggle && updateInterval) {
+        console.log('Initializing auto update controls');
+        
+        // 確保初始狀態是關閉的
+        autoUpdateToggle.checked = false;
+        
+        // 切換自動更新
+        autoUpdateToggle.addEventListener('change', function() {
+            console.log(`Auto update toggle changed: ${this.checked}`);
+            if (this.checked) {
+                const seconds = parseInt(updateInterval.value);
+                console.log(`Starting auto update with ${seconds} seconds`);
+                if (seconds >= 5 && seconds <= 300) {
+                    startAutoUpdate(seconds);
+                } else {
+                    // 如果值無效，設定為預設值並提示用戶
+                    updateInterval.value = '30';
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'warning',
+                        title: '更新間隔必須在 5-300 秒之間',
+                        showConfirmButton: false,
+                        timer: 2000
+                    });
+                    autoUpdateToggle.checked = false;
+                }
+            } else {
+                stopAutoUpdate();
+            }
+        });
+
+        // 更新間隔變更
+        updateInterval.addEventListener('input', function() {
+            // 允許空值和部分輸入
+            if (this.value === '' || this.value === '-') {
+                return;
+            }
+
+            let value = parseInt(this.value);
+            
+            // 只在有效的數字輸入時更新
+            if (!isNaN(value)) {
+                // 如果自動更新已開啟，檢查範圍並應用
+                if (autoUpdateToggle.checked) {
+                    if (value < 5 || value > 300) {
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'warning',
+                            title: '更新間隔必須在 5-300 秒之間',
+                            showConfirmButton: false,
+                            timer: 2000
+                        });
+                        autoUpdateToggle.checked = false;
+                        stopAutoUpdate();
+                    } else {
+                        console.log(`Restarting auto update with new interval: ${value}`);
+                        startAutoUpdate(value);
+                    }
+                }
+            }
+        });
+
+        // 處理失去焦點時的最終檢查
+        updateInterval.addEventListener('blur', function() {
+            let value = parseInt(this.value);
+            
+            // 如果輸入無效或超出範圍，重置為預設值
+            if (isNaN(value) || value < 5 || value > 300) {
+                this.value = '30';
+                if (autoUpdateToggle.checked) {
+                    autoUpdateToggle.checked = false;
+                    stopAutoUpdate();
+                }
+            }
+        });
+    }
+}
+
+// 修改 startAutoUpdate 函數，確保使用全局的 autoUpdateInterval
+function startAutoUpdate(seconds) {
+    console.log(`Starting auto update with interval: ${seconds} seconds`);
+    stopAutoUpdate(); // 先停止現有的更新
+    if (seconds >= 5) {
+        autoUpdateInterval = setInterval(() => {
+            console.log('Auto update triggered');
+            loadScheduleList(true); // 添加 true 參數強制更新
+        }, seconds * 1000);
+        console.log('Auto update interval set');
+    }
+}
+
+// 修改 stopAutoUpdate 函數，確保使用全局的 autoUpdateInterval
+function stopAutoUpdate() {
+    if (autoUpdateInterval) {
+        console.log('Stopping auto update');
+        clearInterval(autoUpdateInterval);
+        autoUpdateInterval = null;
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1923,4 +2088,75 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 初始化時間選擇器
     toggleScheduleTimeOptions();
+
+    // 添加批量刪除功能
+    function updateBatchDeleteButton() {
+        const checkedBoxes = document.querySelectorAll('input[name="scheduleSelect"]:checked');
+        const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+        batchDeleteBtn.disabled = checkedBoxes.length === 0;
+    }
+
+    // 添加全選功能
+    const selectAll = document.getElementById('selectAll');
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('input[name="scheduleSelect"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            updateBatchDeleteButton();
+        });
+    }
+
+    // 添加批量刪除按鈕事件監聽
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    if (batchDeleteBtn) {
+        batchDeleteBtn.addEventListener('click', async function() {
+            const checkedBoxes = document.querySelectorAll('input[name="scheduleSelect"]:checked');
+            const ids = Array.from(checkedBoxes).map(cb => cb.value);
+            
+            if (ids.length === 0) return;
+
+            const result = await Swal.fire({
+                title: '確定要刪除選中的排程嗎？',
+                text: "此操作無法復原！",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: '確定刪除',
+                cancelButtonText: '取消'
+            });
+
+            if (result.isConfirmed) {
+                try {
+                    const response = await fetch('/api/schedules/batch', {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ ids })
+                    });
+
+                    if (!response.ok) throw new Error('刪除失敗');
+
+                    await Swal.fire(
+                        '刪除成功！',
+                        '選中的排程已被刪除',
+                        'success'
+                    );
+
+                    // 重新載入排程列表
+                    loadScheduleList();
+                } catch (error) {
+                    console.error('Batch delete error:', error);
+                    Swal.fire(
+                        '錯誤',
+                        '刪除排程時發生錯誤',
+                        'error'
+                    );
+                }
+            }
+        });
+    }
 });
