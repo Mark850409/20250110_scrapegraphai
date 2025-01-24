@@ -307,14 +307,27 @@ async function saveSchedule() {
         let scriptContent = '';
         let fileName = null;
 
-        if (scriptSource === 'file') {
+        // 修改這裡：將 'file' 改為 'upload'
+        if (scriptSource === 'upload') {  // 修改這行
             const fileInput = document.getElementById('scriptFile');
-            if (!fileInput.files || fileInput.files.length === 0) {
+            const uploadedFile = document.querySelector('.uploaded-file');
+            
+            if (fileInput.files.length > 0) {
+                // 使用新上傳的檔案
+                fileName = fileInput.files[0].name;
+                scriptContent = await fileInput.files[0].text();
+            } else if (uploadedFile && currentScheduleId) {
+                // 使用已存在的檔案（編輯模式）
+                fileName = uploadedFile.textContent.trim();
+                const existingScript = document.getElementById('existingScriptContent');
+                if (existingScript) {
+                    scriptContent = existingScript.value;
+                }
+            } else {
                 throw new Error('請上傳腳本檔案');
             }
-            fileName = fileInput.files[0].name;
-            scriptContent = await fileInput.files[0].text();
         } else {
+            // 直接輸入模式
             scriptContent = document.getElementById('scriptContent').value.trim();
             if (!scriptContent) {
                 throw new Error('請輸入腳本內容');
@@ -432,6 +445,7 @@ async function saveSchedule() {
     }
 }
 
+
 // 載入排程列表
 async function loadScheduleList(forceUpdate = false) {
     try {
@@ -528,20 +542,35 @@ async function loadScheduleList(forceUpdate = false) {
     }
 }
 
-// 添加更新分頁控制的函數
+// 修改 updatePaginationControls 函數
 function updatePaginationControls(currentPage, totalPages, totalItems) {
-    const prevButton = document.getElementById('schedulePrevPage')?.parentElement;
-    const nextButton = document.getElementById('scheduleNextPage')?.parentElement;
-    const pageInfo = document.getElementById('schedulePageInfo');
-    
-    if (prevButton) {
-        prevButton.classList.toggle('disabled', currentPage <= 1);
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (paginationContainer) {
+        paginationContainer.innerHTML = `
+            <div class="d-flex align-items-center gap-2">
+                <span class="pagination-info">第 ${currentPage} 頁 / 共 ${totalPages} 頁 (共 ${totalItems} 筆)</span>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item ${currentPage <= 1 ? 'disabled' : ''}">
+                            <a class="page-link" href="#" id="schedulePrevPage">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
+                            <a class="page-link" href="#" id="scheduleNextPage">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        `;
     }
-    if (nextButton) {
-        nextButton.classList.toggle('disabled', currentPage >= totalPages);
-    }
-    if (pageInfo) {
-        pageInfo.textContent = `第 ${currentPage} 頁 / 共 ${totalPages} 頁 (共 ${totalItems} 筆)`;
+
+    // 更新每頁顯示選項
+    const pageSizeSelect = document.getElementById('pageSizeSelect');
+    if (pageSizeSelect) {
+        pageSizeSelect.value = schedulePageSize;
     }
 }
 
@@ -554,12 +583,15 @@ function updateBatchDeleteButton() {
     }
 }
 
-// 修改 updateScheduleTable 函數
+// 修改 updateScheduleTable 函數，添加分頁控制
 function updateScheduleTable(schedules) {
     const tbody = document.getElementById('schedule-list');
     if (!tbody) return;
 
+    // 清空表格內容
     tbody.innerHTML = '';
+
+    // 如果沒有排程，顯示空狀態
     if (schedules.length === 0) {
         tbody.innerHTML = `
             <tr>
@@ -578,6 +610,7 @@ function updateScheduleTable(schedules) {
         return;
     }
 
+    // 添加排程列表
     schedules.forEach(schedule => {
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', schedule.id);
@@ -602,19 +635,35 @@ function updateScheduleTable(schedules) {
         tbody.appendChild(tr);
     });
 
-    // 添加勾選事件監聽
-    document.querySelectorAll('input[name="scheduleSelect"]').forEach(checkbox => {
-        checkbox.addEventListener('change', updateBatchDeleteButton);
-    });
-
-    // 更新全選框狀態
-    const selectAll = document.getElementById('selectAll');
-    if (selectAll) {
-        selectAll.checked = false;
+    // 更新分頁控制區域
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (paginationContainer) {
+        paginationContainer.innerHTML = `
+            <div class="d-flex align-items-center gap-2">
+                <span class="pagination-info">第 ${scheduleCurrentPage} 頁 / 共 ${Math.ceil(totalSchedules.length / schedulePageSize)} 頁 (共 ${totalSchedules.length} 筆)</span>
+                <nav aria-label="Page navigation">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item ${scheduleCurrentPage <= 1 ? 'disabled' : ''}">
+                            <a class="page-link" href="#" id="schedulePrevPage">
+                                <i class="fas fa-chevron-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item ${scheduleCurrentPage >= Math.ceil(totalSchedules.length / schedulePageSize) ? 'disabled' : ''}">
+                            <a class="page-link" href="#" id="scheduleNextPage">
+                                <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        `;
     }
-    
-    // 更新批量刪除按鈕狀態
-    updateBatchDeleteButton();
+
+    // 更新每頁顯示選項
+    const pageSizeSelect = document.getElementById('pageSizeSelect');
+    if (pageSizeSelect) {
+        pageSizeSelect.value = schedulePageSize;
+    }
 }
 
 // 輔助函數
@@ -1034,67 +1083,50 @@ async function restartSchedule(id) {
     }
 }
 
-// 修改 runScheduleNow 函數，添加狀態檢查
-async function runScheduleNow(id) {
+// 修改 runScheduleNow 函數
+async function runScheduleNow(scheduleId) {
     try {
-        // 先檢查當前狀態
-        const response = await fetch(`/api/schedules/${id}`);
-        if (!response.ok) {
-            throw new Error('獲取排程資訊失敗');
-        }
-        const schedule = await response.json();
-        
-        if (schedule.status === 'failed') {
-            await Swal.fire({
-                icon: 'error',
-                title: '無法執行',
-                text: '失敗的排程無法執行，請編輯修正後再試'
-            });
-            return;
-        }
-
-        // 原有的確認邏輯
-        const result = await Swal.fire({
-            title: '確認執行',
-            text: '確定要立即執行這個排程嗎？',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: '確定',
-            cancelButtonText: '取消'
+        // 顯示執行提示
+        Swal.fire({
+            title: '執行中...',
+            text: '正在執行排程任務',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            willOpen: () => {
+                Swal.showLoading();
+            }
         });
 
-        if (result.isConfirmed) {
-            const response = await fetch(`/api/schedules/${id}/run`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+        // 執行排程
+        const response = await fetch(`/api/schedules/${scheduleId}/run`, {
+            method: 'POST'
+        });
 
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || '執行排程失敗');
-            }
-
-            // 顯示 toast 提示
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'success',
-                title: '排程開始執行',
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true
-            });
-
-            await loadScheduleList(true);  // 強制更新列表
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || '執行失敗');
         }
+
+        // 顯示成功訊息
+        Swal.fire({
+            icon: 'success',
+            title: '執行成功',
+            text: '排程任務已完成',
+            timer: 2000,
+            showConfirmButton: false
+        });
+
+        // 重新載入排程列表
+        await loadScheduleList(true);
+
     } catch (error) {
-        console.error('Run Now Error:', error);
-        await Swal.fire({
+        Swal.fire({
             icon: 'error',
             title: '錯誤',
-            text: '執行排程失敗: ' + error.message
+            text: error.message,
+            timer: 3000,
+            showConfirmButton: false
         });
     }
 }
@@ -1211,10 +1243,10 @@ function createActionButtons(schedule) {
 
     // 按鈕啟用邏輯
     const canEdit = isFailed||isStopped;  // 只有已停止狀態可以編輯
-    const canDelete = isStopped || isFailed;  // 已停止和失敗可以刪除
-    const canRestart = isCompleted;  // 已停止和已完成可以啟用
-    const canRun = isActive || isStopped || isCompleted;  // 已停止和已完成可以執行
-    const canStop = isActive || isCompleted;  // 運行中和已完成可以停止
+    const canDelete = isStopped || isFailed ||isPending;  // 已停止和失敗可以刪除
+    const canRestart = isStopped ||isCompleted;  // 已停止和已完成可以啟用
+    const canRun = isStopped || isCompleted ||isPending ||isActive;  // 已停止和已完成可以執行
+    const canStop = isActive || isCompleted ||isPending;  // 運行中和已完成可以停止
 
     return `
         <div class="d-flex gap-2">
@@ -1262,12 +1294,55 @@ function removeUploadedFile() {
 // 在文件最頂部定義全局變數
 let autoUpdateInterval = null;
 
-// 修改 DOMContentLoaded 事件處理，移除重複的註冊
+// 修改 DOMContentLoaded 事件處理，確保只註冊一次
 document.addEventListener('DOMContentLoaded', function() {
-    // ... 其他現有的初始化代碼 ...
-
     // 初始化自動更新控制
     initAutoUpdate();
+
+    // 為下拉選單添加視覺提示
+    const scheduleTypeSelect = document.getElementById('scheduleType');
+    if (scheduleTypeSelect) {
+        scheduleTypeSelect.classList.add('form-select');
+    }
+
+    const scheduleFrequency = document.getElementById('scheduleFrequency');
+    if (scheduleFrequency) {
+        scheduleFrequency.classList.add('form-select');
+    }
+
+    // 添加分頁大小選擇事件
+    const pageSizeSelect = document.getElementById('pageSizeSelect');
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', function() {
+            schedulePageSize = parseInt(this.value);
+            scheduleCurrentPage = 1;  // 重置到第一頁
+            loadScheduleList(true);
+        });
+    }
+
+    // 添加分頁控制事件
+    const prevPageBtn = document.getElementById('schedulePrevPage');
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (scheduleCurrentPage > 1) {
+                scheduleCurrentPage--;
+                loadScheduleList(true);
+            }
+        });
+    }
+
+    const nextPageBtn = document.getElementById('scheduleNextPage');
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const totalPages = Math.ceil(totalSchedules.length / schedulePageSize);
+            if (scheduleCurrentPage < totalPages) {
+                scheduleCurrentPage++;
+                loadScheduleList(true);
+            }
+        });
+    }
 });
 
 // 將自動更新初始化邏輯抽取為獨立函數

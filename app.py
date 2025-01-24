@@ -22,6 +22,8 @@ import pytz
 import uuid
 import atexit
 import re
+import signal
+import threading
 
 app = Flask(__name__)
 load_dotenv()
@@ -2608,9 +2610,10 @@ tw_tz = pytz.timezone('Asia/Taipei')
 # 修改執行日誌記錄部分
 def execute_script(schedule_id, script_type, script_content):
     """執行排程腳本"""
-    db_conn = None  # 改名以避免與其他 conn 混淆
+    db_conn = None
+    process = None
     try:
-        execution_start = time.time()  # 改名以更清楚表達用途
+        execution_start = time.time()
         db_conn = sqlite3.connect('scripts.db')
         cursor = db_conn.cursor()
         
@@ -2620,13 +2623,6 @@ def execute_script(schedule_id, script_type, script_content):
         time_str = current_time.strftime('%Y-%m-%d %H:%M:%S')
         
         try:
-            # 更新排程狀態為執行中
-            cursor.execute('''
-                UPDATE schedules 
-                SET status = 'active', last_run = ?
-                WHERE id = ?
-            ''', (time_str, schedule_id))
-            
             # 記錄開始執行的日誌
             cursor.execute('''
                 INSERT INTO schedule_logs (schedule_id, execution_time, status, content)
@@ -2643,17 +2639,55 @@ def execute_script(schedule_id, script_type, script_content):
             
             temp_script = os.path.join(script_dir, f'temp_script_{schedule_id}.py')
             
-            # 確保輸出目錄存在
-            output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'output')
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
+            # 分離 import 語句和主要代碼
+            script_lines = script_content.splitlines()
+            imports = []
+            main_code = []
             
-            # 修改腳本內容
+            for line in script_lines:
+                if line.strip().startswith('import ') or line.strip().startswith('from '):
+                    imports.append(line)
+                else:
+                    main_code.append(line)
+            
+            # 修改腳本內容，將 import 放在全局範圍
             modified_script = f"""
 import os
 import sys
+import threading
+import traceback
 sys.stdout.reconfigure(encoding='utf-8')
-{script_content}
+
+# 用戶的 import 語句
+{chr(10).join(imports)}
+
+def main():
+    # 用戶的主要代碼
+{chr(10).join('    ' + line for line in main_code if line.strip())}
+
+def run_with_timeout(timeout=60):
+    timer = threading.Timer(timeout, lambda: sys.exit(1))
+    timer.start()
+    try:
+        main()
+    except Exception as e:
+        print(f"執行錯誤: {{str(e)}}")
+        traceback.print_exc()
+        sys.exit(1)
+    finally:
+        timer.cancel()
+
+if __name__ == '__main__':
+    try:
+        run_with_timeout()
+    except SystemExit as e:
+        if e.code == 1:
+            print("腳本執行超時（超過60秒）")
+        sys.exit(e.code)
+    except Exception as e:
+        print(f"執行錯誤: {{str(e)}}")
+        traceback.print_exc()
+        sys.exit(1)
 """
             
             with open(temp_script, 'w', encoding='utf-8-sig') as f:
@@ -2673,31 +2707,36 @@ sys.stdout.reconfigure(encoding='utf-8')
                     env=my_env,
                     cwd=script_dir
                 )
-                stdout, stderr = process.communicate()
                 
-                if process.returncode == 0:
-                    # 執行成功
-                    duration = time.time() - execution_start
-                    end_time = datetime.now(tw_tz)
-                    end_time_str = end_time.strftime('%Y-%m-%d %H:%M:%S')
+                try:
+                    stdout, stderr = process.communicate(timeout=70)  # 給予額外的緩衝時間
                     
-                    # 更新日誌
-                    cursor.execute('''
-                        UPDATE schedule_logs 
-                        SET status = 'success', duration = ?, error_message = NULL,
-                            execution_time = ?, content = ?
-                        WHERE id = ?
-                    ''', (duration, end_time_str, "排程任務執行成功", log_id))
-                    
-                    # 更新排程狀態
-                    cursor.execute('''
-                        UPDATE schedules 
-                        SET status = 'completed', result = ?, error_message = NULL
-                        WHERE id = ?
-                    ''', (stdout.strip(), schedule_id))
-                else:
-                    error_msg = stderr.strip() if stderr else "未知錯誤"
-                    raise Exception(error_msg)
+                    if process.returncode == 0:
+                        # 執行成功
+                        duration = time.time() - execution_start
+                        end_time = datetime.now(tw_tz)
+                        end_time_str = end_time.strftime('%Y-%m-%d %H:%M:%S')
+                        
+                        cursor.execute('''
+                            UPDATE schedule_logs 
+                            SET status = 'success', duration = ?, error_message = NULL,
+                                execution_time = ?, content = ?
+                            WHERE id = ?
+                        ''', (duration, end_time_str, "排程任務執行成功", log_id))
+                        
+                        cursor.execute('''
+                            UPDATE schedules 
+                            SET status = 'completed', result = ?, error_message = NULL
+                            WHERE id = ?
+                        ''', (stdout.strip(), schedule_id))
+                    else:
+                        error_msg = stderr.strip() if stderr else stdout.strip() or "未知錯誤"
+                        raise Exception(error_msg)
+                        
+                except subprocess.TimeoutExpired:
+                    if process:
+                        process.kill()
+                    raise TimeoutError("腳本執行超時（超過60秒）")
                     
             except Exception as e:
                 error = str(e)
@@ -2721,7 +2760,15 @@ sys.stdout.reconfigure(encoding='utf-8')
                 
             finally:
                 if os.path.exists(temp_script):
-                    os.remove(temp_script)
+                    try:
+                        os.remove(temp_script)
+                    except:
+                        pass
+                if process and process.poll() is None:
+                    try:
+                        process.kill()
+                    except:
+                        pass
                     
             db_conn.commit()
             
@@ -2732,7 +2779,6 @@ sys.stdout.reconfigure(encoding='utf-8')
             raise
             
     except Exception as e:
-        print(f"Error executing script: {e}")
         if db_conn:
             try:
                 error_time = datetime.now(tw_tz).strftime('%Y-%m-%d %H:%M:%S')
@@ -2744,7 +2790,13 @@ sys.stdout.reconfigure(encoding='utf-8')
                 db_conn.commit()
             except Exception as inner_e:
                 print(f"Error updating error status: {inner_e}")
+        raise
     finally:
+        if process and process.poll() is None:
+            try:
+                process.kill()
+            except:
+                pass
         if db_conn:
             db_conn.close()
 
@@ -2858,35 +2910,178 @@ def restart_schedule(schedule_id):
 
 @app.route('/api/schedules/<int:schedule_id>/run', methods=['POST'])
 def run_schedule_now(schedule_id):
+    conn = None
     try:
         conn = sqlite3.connect('scripts.db')
         c = conn.cursor()
         
-        # 檢查排程是否存在
-        c.execute('SELECT type, script_content, status FROM schedules WHERE id = ?', (schedule_id,))
+        # 檢查排程狀態
+        c.execute('''
+            SELECT type, script_content, status, last_run
+            FROM schedules 
+            WHERE id = ?
+        ''', (schedule_id,))
+        
         schedule = c.fetchone()
         if not schedule:
             return jsonify({'error': '找不到排程'}), 404
-
-        script_type, script_content, status = schedule
+            
+        script_type, script_content, status, last_run = schedule
         
-        # 檢查是否已在運行中
+        # 如果排程正在執行中，先清理現有執行
         if status == 'active':
-            return jsonify({'error': '排程已在運行中'}), 400
+            # 先嘗試終止可能存在的進程
+            try:
+                script_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp')
+                temp_script = os.path.join(script_dir, f'temp_script_{schedule_id}.py')
+                if os.path.exists(temp_script):
+                    if os.name == 'nt':
+                        os.system(f'taskkill /F /IM python.exe /FI "WINDOWTITLE eq {temp_script}"')
+                    else:
+                        os.system(f'pkill -f {temp_script}')
+                    try:
+                        os.remove(temp_script)
+                    except:
+                        pass
+            except Exception as e:
+                print(f"Error killing process: {e}")
 
-        # 立即執行排程
-        execute_script(schedule_id, script_type, script_content)
+            # 更新之前未完成的執行狀態
+            c.execute('''
+                UPDATE schedules 
+                SET status = 'failed',
+                    error_message = '執行被新的任務中斷'
+                WHERE id = ?
+            ''', (schedule_id,))
+            
+            # 更新相關的日誌記錄
+            c.execute('''
+                UPDATE schedule_logs 
+                SET status = 'failed',
+                    error_message = '執行被新的任務中斷',
+                    content = '任務被中斷'
+                WHERE schedule_id = ? 
+                AND status = 'active'
+            ''', (schedule_id,))
+            
+            conn.commit()
+        
+        # 檢查執行間隔
+        if last_run:
+            try:
+                last_run_time = datetime.strptime(last_run.split('+')[0], '%Y-%m-%d %H:%M:%S')
+                current_time = datetime.now()
+                time_diff = (current_time - last_run_time).total_seconds()
+                
+                if time_diff < 30:
+                    return jsonify({
+                        'error': f'執行間隔太短，請等待 {int(30 - time_diff)} 秒後再試'
+                    }), 400
+            except Exception as e:
+                print(f"Error parsing last_run time: {e}")
 
-        return jsonify({'success': True, 'message': '排程已開始執行'})
+        # 更新狀態為執行中
+        c.execute('''
+            UPDATE schedules 
+            SET status = 'active',
+                error_message = NULL,
+                result = NULL,
+                last_run = datetime('now', 'localtime')
+            WHERE id = ?
+        ''', (schedule_id,))
+        
+        conn.commit()
 
+        try:
+            # 執行腳本
+            execute_script(schedule_id, script_type, script_content)
+            return jsonify({'success': True, 'message': '排程執行成功'})
+            
+        except Exception as e:
+            error_message = str(e)
+            c.execute('''
+                UPDATE schedules 
+                SET status = 'failed',
+                    error_message = ?
+                WHERE id = ?
+            ''', (error_message, schedule_id))
+            conn.commit()
+            return jsonify({'error': error_message}), 500
+            
     except Exception as e:
         print(f"Error running schedule: {e}")
+        if conn:
+            try:
+                c.execute('''
+                    UPDATE schedules 
+                    SET status = 'failed',
+                    error_message = ?
+                    WHERE id = ?
+                ''', (str(e), schedule_id))
+                conn.commit()
+            except:
+                pass
+        return jsonify({'error': str(e)}), 500
+        
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
+
+@app.route('/api/schedules/<int:schedule_id>/check', methods=['POST'])
+def check_schedule_status(schedule_id):
+    conn = None
+    try:
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        
+        # 檢查排程狀態
+        c.execute('''
+            SELECT status, last_run
+            FROM schedules 
+            WHERE id = ?
+        ''', (schedule_id,))
+        
+        result = c.fetchone()
+        if not result:
+            return jsonify({'error': '找不到排程'}), 404
+            
+        status, last_run = result
+        
+        # 檢查執行間隔
+        if last_run:
+            try:
+                last_run_time = datetime.strptime(last_run.split('+')[0], '%Y-%m-%d %H:%M:%S')
+                current_time = datetime.now()
+                time_diff = (current_time - last_run_time).total_seconds()
+                
+                if time_diff < 30:
+                    return jsonify({
+                        'error': f'執行間隔太短，請等待 {int(30 - time_diff)} 秒後再試'
+                    }), 400
+            except Exception as e:
+                print(f"Error parsing last_run time: {e}")
+        
+        # 清理可能存在的殘留狀態
+        c.execute('''
+            UPDATE schedules 
+            SET status = 'stopped',
+                error_message = '之前的執行已被重置'
+            WHERE id = ? AND status IN ('active', 'pending')
+        ''', (schedule_id,))
+        
+        conn.commit()
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"Error checking schedule: {e}")
         return jsonify({'error': str(e)}), 500
     finally:
         if conn:
             conn.close()
 
-# 添加獲取日誌的 API
 @app.route('/api/schedules/<int:schedule_id>/logs', methods=['GET'])
 def get_schedule_logs(schedule_id):
     try:
@@ -3061,6 +3256,36 @@ def batch_delete_schedules():
         }), 500
     finally:
         if 'conn' in locals():
+            conn.close()
+
+@app.route('/api/schedules/<int:schedule_id>', methods=['GET'])
+def get_schedule_status(schedule_id):
+    try:
+        conn = sqlite3.connect('scripts.db')
+        c = conn.cursor()
+        
+        c.execute('''
+            SELECT status, error_message, result
+            FROM schedules
+            WHERE id = ?
+        ''', (schedule_id,))
+        
+        schedule = c.fetchone()
+        if not schedule:
+            return jsonify({'error': '找不到排程'}), 404
+            
+        status, error_message, result = schedule
+        
+        return jsonify({
+            'status': status,
+            'error_message': error_message,
+            'result': result
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if conn:
             conn.close()
 
 if __name__ == '__main__':
