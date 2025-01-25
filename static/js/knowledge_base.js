@@ -289,59 +289,80 @@ async function validateScript(content, type) {
 }
 
 // 修改腳本內容安全檢查函數
-function isScriptContentSafe(content, scriptType) {
-    // 定義危險關鍵字列表
-    const dangerousKeywords = [
-        'rm -rf', 'rmdir /s', 'del /f', 'format',  // 刪除和格式化命令
-        'shutdown', 'reboot', 'init 0',          // 系統關機命令
-        'chmod 777', 'chmod -R',                 // 權限修改
-        ':(){:|:&};:',                          // Fork 炸彈
-        'eval(',                                // 危險的程式碼執行
-        'exec(',                                // 系統命令執行
-        'os.system',                           // Python 系統命令
-        'subprocess.call',                      // Python 子進程
-        'socket',                              // 網路操作
-    ];
-
-    // 根據腳本類型定義允許的關鍵字
-    const allowedKeywords = {
+function isScriptContentSafe(content, type) {
+    // 定義各種腳本類型的危險關鍵字
+    const dangerousKeywords = {
         'python': [
-            'requests', 'beautifulsoup', 'selenium',
-            'urllib', 'scrapy', 'aiohttp',
-            'pandas', 'csv', 'json',
-            'time.sleep', 'datetime',
-            'print', 'logging'
-        ],
-        'bat': [
-            '@echo off', 'powershell', 'invoke-webrequest',
-            'findstr', 'type', 'find',
-            'echo', 'exit /b',
-            'set', 'if', 'for'
+            'rm -rf', 'rmdir', 'del /f', 'format',
+            'shutdown', 'reboot', 'init 0',
+            'chmod 777', 'chmod -R',
+            'os.system', 'subprocess.call',
+            'socket'
         ],
         'shell': [
-            'curl', 'wget', 'grep',
-            'awk', 'sed', 'cat',
-            'echo', 'exit'
+            'rm -rf /', 'mkfs', 'dd if=/dev/zero',
+            'shutdown', ':(){:|:&};:',
+            '> /dev/sda', 'chmod -R 777 /',
+            'mv /* /dev/null'
+        ],
+        'batch': [
+            'format c:', 'del /f /s /q',
+            'rmdir /s /q c:', 'shutdown /s',
+            'net user administrator', 'reg delete',
+            'taskkill /f /im'
         ]
     };
 
+    // 定義各種腳本類型的允許關鍵字
+    const allowedKeywords = {
+        'python': [
+            'requests', 'beautifulsoup', 'selenium',
+            'urllib', 'scrapy', 'pandas', 'csv'
+        ],
+        'shell': [
+            'curl', 'wget', 'grep', 'awk', 'sed',
+            'cat', 'echo', 'exit', 'touch', 'mkdir'
+        ],
+        'batch': [
+            '@echo off', 'set', 'echo',
+            'powershell', 'findstr', 'type',
+            'dir', 'exit /b', 'if', 'for'
+        ]
+    };
+
+    // 根據腳本類型選擇對應的關鍵字列表
+    const scriptType = type.toLowerCase();
+    const dangerousWords = dangerousKeywords[scriptType] || dangerousKeywords.python;
+    const allowedWords = allowedKeywords[scriptType] || allowedKeywords.python;
+
     // 檢查是否包含危險關鍵字
-    const hasDangerousCode = dangerousKeywords.some(keyword => 
+    const hasDangerousCode = dangerousWords.some(keyword => 
         content.toLowerCase().includes(keyword.toLowerCase())
     );
 
-    // 根據腳本類型檢查是否包含允許的關鍵字
-    const scriptAllowedKeywords = allowedKeywords[scriptType] || allowedKeywords.python;
-    const hasAllowedCode = scriptAllowedKeywords.some(keyword => 
+    // 檢查是否包含允許的關鍵字
+    const hasAllowedCode = allowedWords.some(keyword => 
         content.toLowerCase().includes(keyword.toLowerCase())
     );
 
-    if (hasDangerousCode || !hasAllowedCode) {
+    // 如果是 shell 或 batch 腳本，檢查是否有正確的開頭
+    if (scriptType === 'shell' && !content.trim().startsWith('#!/bin/')) {
         return {
             safe: false,
-            message: hasDangerousCode ? 
-                '腳本包含危險的系統命令，僅允許網頁爬蟲相關操作。' : 
-                '腳本必須包含允許的程式碼。'
+            message: 'Shell 腳本必須以 #!/bin/bash 或 #!/bin/sh 開頭'
+        };
+    }
+    if (scriptType === 'batch' && !content.trim().toLowerCase().startsWith('@echo off')) {
+        return {
+            safe: false,
+            message: 'Batch 腳本必須以 @echo off 開頭'
+        };
+    }
+
+    if (hasDangerousCode) {
+        return {
+            safe: false,
+            message: '腳本包含危險的系統命令，僅允許網頁爬蟲相關操作。'
         };
     }
 

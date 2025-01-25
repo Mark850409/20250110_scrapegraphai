@@ -53,7 +53,8 @@
     background-color: #212529;
     color: #f8f9fa;
     padding: 3rem 0;
-    margin-top: 3rem;
+    margin-top: auto;
+    width: 100%;
 }
 .footer a {
     color: #adb5bd;
@@ -94,15 +95,8 @@ body {
 
 .content-wrapper {
     flex: 1 0 auto;
-    padding-bottom: 3rem;
-}
-
-.footer {
-    flex-shrink: 0;
-    background-color: #212529;
-    color: #f8f9fa;
-    padding: 3rem 0;
-    width: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 /* 麵包屑導航樣式 */
